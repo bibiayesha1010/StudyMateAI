@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+
 import 'login_screen.dart';
+import 'signup_screen.dart';
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
@@ -7,47 +9,84 @@ class WelcomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 30,
+          ),
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
 
-          children: [
+                const Icon(
+                  Icons.school_rounded,
+                  size: 90,
+                ),
 
-            const Text(
-              "Welcome to StudyMateAI",
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+                const SizedBox(height: 25),
 
-            const SizedBox(height: 10),
-
-            const Text(
-              "Your AI powered study companion",
-              style: TextStyle(
-                fontSize: 16,
-              ),
-            ),
-
-            const SizedBox(height: 30),
-
-            ElevatedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const LoginScreen(),
+                const Text(
+                  "StudyMateAI",
+                  style: TextStyle(
+                    fontSize: 34,
+                    fontWeight: FontWeight.bold,
                   ),
-                );
-              },
+                ),
 
-              child: const Text(
-                "Start Learning",
-              ),
+                const SizedBox(height: 10),
+
+                const Text(
+                  "Your AI Study Companion",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: Colors.grey,
+                  ),
+                ),
+
+                const SizedBox(height: 50),
+
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const LoginScreen(),
+                        ),
+                      );
+                    },
+                    child: const Text(
+                      "Login",
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 15),
+
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: OutlinedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const SignupScreen(),
+                        ),
+                      );
+                    },
+                    child: const Text(
+                      "Sign Up",
+                    ),
+                  ),
+                ),
+              ],
             ),
-
-          ],
+          ),
         ),
       ),
     );

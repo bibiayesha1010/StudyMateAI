@@ -73,11 +73,12 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'YOUR_WEB_API_KEY',
-    appId: 'YOUR_WEB_APP_ID',
-    messagingSenderId: 'YOUR_MESSAGING_SENDER_ID',
-    projectId: 'YOUR_PROJECT_ID',
-    storageBucket: 'YOUR_STORAGE_BUCKET',
-    authDomain: 'YOUR_PROJECT_ID.firebaseapp.com',
+    apiKey: 'AIzaSyBVa1bJ0v5BDg0jy-fMQNFWWIt5upltJYg',
+    appId: '1:686791061511:web:7aba6fa3201d79878a3aa2',
+    messagingSenderId: '686791061511',
+    projectId: 'studymateai-65af4',
+    authDomain: 'studymateai-65af4.firebaseapp.com',
+    storageBucket: 'studymateai-65af4.firebasestorage.app',
+    measurementId: 'G-60RTE2V03X',
   );
 }
