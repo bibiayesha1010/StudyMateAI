@@ -18,9 +18,10 @@ class ChatService {
       updatedAt: DateTime.now(),
       messages: [
         ChatMessage(
-          text: firstMessage,
-          isUser: true,
-        ),
+  text: firstMessage,
+  isUser: true,
+  timestamp: DateTime.now(),
+),
       ],
     );
 

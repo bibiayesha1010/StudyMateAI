@@ -77,6 +77,7 @@ void initState() {
   final userMessage = ChatMessage(
     text: text,
     isUser: true,
+     timestamp: DateTime.now(),
   );
 
   setState(() {
@@ -101,6 +102,7 @@ void initState() {
 final aiMessage = ChatMessage(
   text: response,
   isUser: false,
+   timestamp: DateTime.now(),
 );
 
 setState(() {
