@@ -117,15 +117,119 @@ setState(() {
 
   Widget suggestionChip(String text) {
 
-    return Chip(
+  return ActionChip(
 
-      label: Text(text),
+    label: Text(text),
 
-      backgroundColor:
-          Colors.grey.shade100,
-    );
+    backgroundColor:
+        Colors.grey.shade100,
+
+    onPressed: () {
+
+  String title = "";
+  String hint = "";
+  String promptPrefix = "";
+  String buttonText = "";
+
+  if (text == "Generate Notes") {
+
+    title = "Generate Notes";
+    hint = "Enter topic";
+    buttonText = "Generate";
+
+    promptPrefix =
+        "Generate detailed study notes for ";
+
+  } else if (text == "Explain Topic") {
+
+    title = "Explain Topic";
+    hint = "Enter topic";
+    buttonText = "Explain";
+
+    promptPrefix =
+        "Explain the topic ";
+
+  } else if (text == "Summarize") {
+
+    title = "Summarize";
+    hint = "Paste notes or enter topic";
+    buttonText = "Summarize";
+
+    promptPrefix =
+        "Summarize the following content:\n\n";
+
   }
 
+  final controller = TextEditingController();
+
+  showDialog(
+
+    context: context,
+
+    builder: (context) {
+
+      return AlertDialog(
+
+        title: Text(title),
+
+        content: TextField(
+
+          controller: controller,
+
+          maxLines: text == "Summarize" ? 6 : 1,
+
+          decoration: InputDecoration(
+            hintText: hint,
+          ),
+        ),
+
+        actions: [
+
+          TextButton(
+
+            onPressed: () {
+
+              Navigator.pop(context);
+
+            },
+
+            child: const Text("Cancel"),
+
+          ),
+
+          ElevatedButton(
+
+            onPressed: () {
+
+              final input =
+                  controller.text.trim();
+
+              if (input.isEmpty) return;
+
+              Navigator.pop(context);
+
+              messageController.text =
+                  promptPrefix + input;
+
+              sendMessage();
+
+            },
+
+            child: Text(buttonText),
+
+          ),
+
+        ],
+
+      );
+
+    },
+
+  );
+
+},
+  );
+}
 
 
   @override
