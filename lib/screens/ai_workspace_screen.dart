@@ -3,6 +3,7 @@ import '../widgets/app_drawer.dart';
 import '../models/chatmessage_model.dart';
 import '../models/conversation_model.dart';
 import '../services/chat_service.dart';
+import '../services/gemini_service.dart';
 
 class AIWorkspaceScreen extends StatefulWidget {
 
@@ -40,6 +41,8 @@ class _AIWorkspaceScreenState
   final TextEditingController messageController =
       TextEditingController();
 
+      final GeminiService geminiService = GeminiService();
+
 
   final List<ChatMessage> messages = [];
 Conversation? currentConversation;
@@ -65,7 +68,7 @@ void initState() {
   }
 }
 
-  void sendMessage() {
+ Future<void> sendMessage() async {
   final text = messageController.text.trim();
 
   if (text.isEmpty) return;
@@ -91,22 +94,22 @@ void initState() {
 
   messageController.clear();
 
-  Future.delayed(const Duration(seconds: 1), () {
-    final aiMessage = ChatMessage(
-      text:
-          'I will help you understand "$text".\n\nAI integration will be added in Phase 4 🚀',
-      isUser: false,
-    );
+ final response =
+    await geminiService.sendMessage(text);
 
-    setState(() {
-      messages.add(aiMessage);
+final aiMessage = ChatMessage(
+  text: response,
+  isUser: false,
+);
 
-      ChatService.instance.addMessage(
-        currentConversation!,
-        aiMessage,
-      );
-    });
-  });
+setState(() {
+  messages.add(aiMessage);
+
+  ChatService.instance.addMessage(
+    currentConversation!,
+    aiMessage,
+  );
+});
 }
 
 
@@ -460,45 +463,22 @@ void initState() {
 
 
 
-                  Expanded(
-
-                    child:
-                        TextField(
-
-                      controller:
-                          messageController,
-
-
-                      decoration:
-                          InputDecoration(
-
-                        hintText:
-                            "Ask StudyMateAI anything...",
-
-
-                        filled:
-                            true,
-
-
-                        fillColor:
-                            Colors.grey.shade100,
-
-
-                        border:
-                            OutlineInputBorder(
-
-                          borderRadius:
-                              BorderRadius.circular(
-                            30,
-                          ),
-
-
-                          borderSide:
-                              BorderSide.none,
-                        ),
-                      ),
-                    ),
-                  ),
+                 Expanded(
+  child: TextField(
+    controller: messageController,
+    textInputAction: TextInputAction.send,
+    onSubmitted: (_) => sendMessage(),
+    decoration: InputDecoration(
+      hintText: "Ask StudyMateAI anything...",
+      filled: true,
+      fillColor: Colors.grey.shade100,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(30),
+        borderSide: BorderSide.none,
+      ),
+    ),
+  ),
+),
 
 
 

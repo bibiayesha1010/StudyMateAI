@@ -123,14 +123,16 @@ class _LoginScreenState extends State<LoginScreen> {
 
             const SizedBox(height: 20),
 
-            TextField(
-              controller: passwordController,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: "Password",
-                border: OutlineInputBorder(),
-              ),
-            ),
+           TextField(
+  controller: passwordController,
+  obscureText: true,
+  textInputAction: TextInputAction.done,
+  onSubmitted: (_) => login(),
+  decoration: const InputDecoration(
+    labelText: "Password",
+    border: OutlineInputBorder(),
+  ),
+),
 
             const SizedBox(height: 30),
 
