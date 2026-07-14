@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../widgets/app_drawer.dart';
 import '../models/chatmessage_model.dart';
 import '../models/conversation_model.dart';
+import '../services/chat_service.dart';
+
 class AIWorkspaceScreen extends StatefulWidget {
 
 
@@ -28,6 +30,7 @@ class AIWorkspaceScreen extends StatefulWidget {
   State<AIWorkspaceScreen> createState() =>
       _AIWorkspaceScreenState();
 
+
 }
 
 
@@ -39,7 +42,7 @@ class _AIWorkspaceScreenState
 
 
   final List<ChatMessage> messages = [];
-
+Conversation? currentConversation;
 
   String getGreeting() {
     final hour = DateTime.now().hour;
@@ -52,53 +55,59 @@ class _AIWorkspaceScreenState
       return "Good Evening 🌙";
     }
   }
+@override
+void initState() {
+  super.initState();
 
+  if (widget.conversation != null) {
+    currentConversation = widget.conversation;
+    messages.addAll(widget.conversation!.messages);
+  }
+}
 
   void sendMessage() {
+  final text = messageController.text.trim();
 
-    final text =
-        messageController.text.trim();
+  if (text.isEmpty) return;
 
+  final userMessage = ChatMessage(
+    text: text,
+    isUser: true,
+  );
 
-    if (text.isEmpty) {
-      return;
+  setState(() {
+    messages.add(userMessage);
+
+    if (currentConversation == null) {
+      currentConversation =
+          ChatService.instance.createConversation(text);
+    } else {
+      ChatService.instance.addMessage(
+        currentConversation!,
+        userMessage,
+      );
     }
+  });
 
+  messageController.clear();
+
+  Future.delayed(const Duration(seconds: 1), () {
+    final aiMessage = ChatMessage(
+      text:
+          'I will help you understand "$text".\n\nAI integration will be added in Phase 4 🚀',
+      isUser: false,
+    );
 
     setState(() {
+      messages.add(aiMessage);
 
-      messages.add(
-        ChatMessage(
-          text: text,
-          isUser: true,
-        ),
+      ChatService.instance.addMessage(
+        currentConversation!,
+        aiMessage,
       );
-
     });
-
-
-    messageController.clear();
-
-
-    Future.delayed(
-      const Duration(seconds: 1),
-      () {
-
-        setState(() {
-
-          messages.add(
-            ChatMessage(
-              text:
-                  "I will help you understand \"$text\".\n\nAI integration will be added in Phase 4 🚀",
-              isUser: false,
-            ),
-          );
-
-        });
-
-      },
-    );
-  }
+  });
+}
 
 
 
