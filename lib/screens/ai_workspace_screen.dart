@@ -4,6 +4,7 @@ import '../models/chatmessage_model.dart';
 import '../models/conversation_model.dart';
 import '../services/chat_service.dart';
 import '../services/gemini_service.dart';
+import 'package:flutter/services.dart';
 
 class AIWorkspaceScreen extends StatefulWidget {
 
@@ -147,11 +148,36 @@ setState(() {
   ),
 
   appBar: AppBar(
-    title: const Text("StudyMateAI"),
-    backgroundColor: Colors.white,
-    foregroundColor: Colors.black,
-    elevation: 0,
-  ),
+  title: const Text("StudyMateAI"),
+
+  backgroundColor: Colors.white,
+
+  foregroundColor: Colors.black,
+
+  elevation: 0,
+
+  actions: [
+
+    IconButton(
+      icon: const Icon(Icons.add_comment_outlined),
+
+      tooltip: "New Chat",
+
+      onPressed: () {
+
+        setState(() {
+
+          messages.clear();
+
+          currentConversation = null;
+
+        });
+
+      },
+    ),
+
+  ],
+),
 
   body: SafeArea(
 
@@ -401,24 +427,49 @@ setState(() {
                                 ),
 
 
-                                child:
-                                    Text(
+                               child: Row(
+  mainAxisSize: MainAxisSize.min,
+  crossAxisAlignment: CrossAxisAlignment.start,
+  children: [
 
-                                  message.text,
+    Flexible(
+      child: Text(
+        message.text,
+        style: TextStyle(
+          color: message.isUser
+              ? Colors.white
+              : Colors.black,
+        ),
+      ),
+    ),
 
+    if (!message.isUser)
+      IconButton(
+        icon: const Icon(
+          Icons.copy,
+          size: 18,
+        ),
 
-                                  style:
-                                      TextStyle(
+        onPressed: () {
 
-                                    color:
+          Clipboard.setData(
+            ClipboardData(
+              text: message.text,
+            ),
+          );
 
-                                        message.isUser
-
-                                            ? Colors.white
-
-                                            : Colors.black,
-                                  ),
-                                ),
+          ScaffoldMessenger.of(context)
+              .showSnackBar(
+            const SnackBar(
+              content: Text(
+                "Copied!",
+              ),
+            ),
+          );
+        },
+      ),
+  ],
+),
                               ),
                             );
                           },

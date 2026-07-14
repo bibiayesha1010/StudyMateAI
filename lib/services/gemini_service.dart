@@ -1,27 +1,52 @@
-import 'package:google_generative_ai/google_generative_ai.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class GeminiService {
 
-  static const String apiKey = "YOUR_API_KEY_HERE";
-
-  final model = GenerativeModel(
-    model: 'gemini-1.5-flash',
-    apiKey: apiKey,
-  );
+  final String apiKey =
+      dotenv.env['GROQ_API_KEY'] ?? "";
 
 
   Future<String> sendMessage(String message) async {
 
     try {
 
-      final response = await model.generateContent(
-        [
-          Content.text(message),
-        ],
+      final response = await http.post(
+        Uri.parse(
+          "https://api.groq.com/openai/v1/chat/completions",
+        ),
+
+        headers: {
+          "Authorization": "Bearer $apiKey",
+          "Content-Type": "application/json",
+        },
+
+        body: jsonEncode({
+
+          "model": "llama-3.1-8b-instant",
+
+          "messages": [
+            {
+              "role": "user",
+              "content": message,
+            }
+          ],
+
+        }),
       );
 
-      return response.text ??
-          "No response generated.";
+
+      final data = jsonDecode(response.body);
+
+
+      if (data["choices"] != null) {
+        return data["choices"][0]["message"]["content"];
+      }
+
+
+      return "No response received.";
+
 
     } catch (e) {
 
