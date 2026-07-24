@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../screens/ai_workspace_screen.dart';
 import '../screens/chat_history_screen.dart';
 import '../screens/profile_screen.dart';
+import '../screens/settings_screen.dart';
+import '../screens/about_screen.dart';
 import '../screens/welcome_screen.dart';
+
 
 
 class AppDrawer extends StatelessWidget {
@@ -17,85 +21,165 @@ class AppDrawer extends StatelessWidget {
 
 
 
-  @override
-  Widget build(BuildContext context) {
 
-    return Drawer(
+ @override
+Widget build(BuildContext context) {
 
-      child: SafeArea(
+  return Drawer(
 
-        child: Column(
+    child: SafeArea(
 
-          children: [
+      child: Column(
 
+        children: [
 
-            UserAccountsDrawerHeader(
+          UserAccountsDrawerHeader(
 
-              accountName:
-              const Text(
-                "StudyMateAI User",
-              ),
+            accountName: const Text(
+              "StudyMate User",
+            ),
 
+            accountEmail: Text(email),
 
-              accountEmail:
-              Text(email),
+            currentAccountPicture: const CircleAvatar(
 
-
-              currentAccountPicture:
-              const CircleAvatar(
-
-                child:
-                Icon(
-                  Icons.person,
-                ),
-
+              child: Icon(
+                Icons.person,
               ),
 
             ),
 
+          ),
 
+
+         ListTile(
+
+  leading: const Icon(
+    Icons.add_comment_outlined,
+  ),
+
+  title: const Text(
+    "New Chat",
+  ),
+
+  onTap: () {
+
+    Navigator.pop(context);
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AIWorkspaceScreen(
+          email: email,
+        ),
+      ),
+    );
+
+  },
+
+),
+          ListTile(
+
+            leading: const Icon(
+              Icons.person,
+            ),
+
+            title: const Text(
+              "Profile",
+            ),
+
+            onTap: (){
+
+              Navigator.pop(context);
+
+
+              Navigator.push(
+
+
+                context,
+
+
+                MaterialPageRoute(
+
+
+                  builder: (context)=> ProfileScreen(
+
+                    email: email,
+
+                  ),
+
+
+                ),
+
+
+              );
+
+
+            },
+
+
+          ),
 
 
             ListTile(
 
-              leading:
-              const Icon(
-                Icons.person,
+
+
+              leading: const Icon(
+
+                Icons.history,
+
               ),
 
 
-              title:
-              const Text(
-                "Profile",
+
+              title: const Text(
+
+                "Chat History",
+
               ),
+
 
 
               onTap: (){
 
 
+
                 Navigator.pop(context);
+
 
 
                 Navigator.push(
 
+
+
                   context,
+
+
 
                   MaterialPageRoute(
 
-                    builder:(context)=>
 
-                        ProfileScreen(
 
-                          email: email,
+                    builder:(context)=> ChatHistoryScreen(
 
-                        ),
+                      email: email,
+
+                    ),
+
+
 
                   ),
+
+
 
                 );
 
 
+
               },
+
+
 
             ),
 
@@ -104,70 +188,37 @@ class AppDrawer extends StatelessWidget {
 
 
 
-            ListTile(
-
-              leading:
-              const Icon(
-                Icons.history,
-              ),
-
-
-              title:
-              const Text(
-                "Chat History",
-              ),
-
-
-              onTap:(){
-
-
-                Navigator.pop(context);
-
-
-
-                Navigator.push(
-
-                  context,
-
-                  MaterialPageRoute(
-
-                    builder:(context)=>
-
-                        ChatHistoryScreen(
-
-                          email: email,
-
-                        ),
-
-                  ),
-
-                );
-
-
-              },
-
-            ),
-
-
-
-
 
 
             ListTile(
 
-              leading:
-              const Icon(
+
+              leading: const Icon(
+
                 Icons.favorite,
+
               ),
 
 
-              title:
-              const Text(
+
+              title: const Text(
+
                 "Favorite Chats",
+
               ),
 
 
-              onTap:(){},
+
+              onTap: (){
+
+
+
+                Navigator.pop(context);
+
+
+
+              },
+
 
 
             ),
@@ -180,19 +231,58 @@ class AppDrawer extends StatelessWidget {
 
             ListTile(
 
-              leading:
-              const Icon(
+
+
+              leading: const Icon(
+
                 Icons.settings,
+
               ),
 
 
-              title:
-              const Text(
+
+              title: const Text(
+
                 "Settings",
+
               ),
 
 
-              onTap:(){},
+
+              onTap: (){
+
+
+
+                Navigator.pop(context);
+
+
+
+                Navigator.push(
+
+
+
+                  context,
+
+
+
+                  MaterialPageRoute(
+
+
+
+                    builder:(context)=> const SettingsScreen(),
+
+
+
+                  ),
+
+
+
+                );
+
+
+
+              },
+
 
 
             ),
@@ -205,28 +295,73 @@ class AppDrawer extends StatelessWidget {
 
             ListTile(
 
-              leading:
-              const Icon(
+
+
+              leading: const Icon(
+
                 Icons.info,
+
               ),
 
 
-              title:
-              const Text(
+
+              title: const Text(
+
                 "About",
+
               ),
 
 
-              onTap:(){},
+
+              onTap: (){
+
+
+
+                Navigator.pop(context);
+
+
+
+                Navigator.push(
+
+
+
+                  context,
+
+
+
+                  MaterialPageRoute(
+
+
+
+                    builder:(context)=> const AboutScreen(),
+
+
+
+                  ),
+
+
+
+                );
+
+
+
+              },
+
 
 
             ),
+
+
 
 
 
 
 
             const Spacer(),
+
+
+
+
 
 
 
@@ -237,43 +372,63 @@ class AppDrawer extends StatelessWidget {
 
 
 
+
+
             ListTile(
 
-              leading:
-              const Icon(
+
+
+              leading: const Icon(
+
                 Icons.logout,
+
               ),
 
 
-              title:
-              const Text(
+
+              title: const Text(
+
                 "Logout",
+
               ),
 
 
 
-              onTap:(){
+              onTap: (){
 
 
 
                 Navigator.pushAndRemoveUntil(
 
+
+
                   context,
+
+
 
                   MaterialPageRoute(
 
-                    builder:(context)=>
 
-                        const WelcomeScreen(),
+
+                    builder:(context)=> const WelcomeScreen(),
+
+
 
                   ),
 
-                      (route)=>false,
+
+
+                  (route)=>false,
+
+
 
                 );
 
 
+
               },
+
+
 
             ),
 
@@ -283,12 +438,22 @@ class AppDrawer extends StatelessWidget {
 
           ],
 
+
+
         ),
+
+
 
       ),
 
+
+
     );
 
+
+
   }
+
+
 
 }

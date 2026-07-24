@@ -27,7 +27,7 @@ class WelcomeScreen extends StatelessWidget {
                 const SizedBox(height: 25),
 
                 const Text(
-                  "StudyMateAI",
+                  "StudyMate",
                   style: TextStyle(
                     fontSize: 34,
                     fontWeight: FontWeight.bold,

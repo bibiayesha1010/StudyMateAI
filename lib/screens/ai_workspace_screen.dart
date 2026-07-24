@@ -5,6 +5,9 @@ import '../models/conversation_model.dart';
 import '../services/chat_service.dart';
 import '../services/gemini_service.dart';
 import 'package:flutter/services.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:share_plus/share_plus.dart';
+
 
 class AIWorkspaceScreen extends StatefulWidget {
 
@@ -114,17 +117,49 @@ setState(() {
   );
 });
 }
+Future<void> exportPDF() async {
 
+  debugPrint("PDF EXPORT STARTED");
 
+  final pdf = pw.Document();
 
+  final chat = messages
+      .map((m) =>
+          "${m.isUser ? "You" : "AI"}: ${m.text}")
+      .join("\n\n");
+
+  pdf.addPage(
+    pw.Page(
+      build: (context) {
+        return pw.Padding(
+          padding: const pw.EdgeInsets.all(20),
+          child: pw.Text(chat),
+        );
+      },
+    ),
+  );
+
+  final bytes = await pdf.save();
+
+  await Share.shareXFiles(
+    [
+      XFile.fromData(
+        bytes,
+        name: "StudyMate_Chat.pdf",
+        mimeType: "application/pdf",
+      ),
+    ],
+    text: "StudyMate Chat PDF",
+  );
+}
   Widget suggestionChip(String text) {
 
   return ActionChip(
 
     label: Text(text),
 
-    backgroundColor:
-        Colors.grey.shade100,
+   backgroundColor:
+    Theme.of(context).cardColor,
 
     onPressed: () {
 
@@ -248,41 +283,164 @@ setState(() {
   Widget build(BuildContext context) {
 
    return Scaffold(
+drawer: AppDrawer(
+  email: widget.email,
+),
 
-  drawer: AppDrawer(
-    email: widget.email,
-  ),
+ appBar: AppBar(
+  backgroundColor: Theme.of(context).scaffoldBackgroundColor,
 
-  appBar: AppBar(
-  title: const Text("StudyMateAI"),
-
-  backgroundColor: Colors.white,
-
-  foregroundColor: Colors.black,
+  foregroundColor: Theme.of(context).colorScheme.onSurface,
 
   elevation: 0,
 
+  title: const SizedBox.shrink(),
+
   actions: [
 
-    IconButton(
-      icon: const Icon(Icons.add_comment_outlined),
+  IconButton(
+    icon: const Icon(Icons.favorite_border_outlined),
+    tooltip: "Favorite",
+    onPressed: () {
 
-      tooltip: "New Chat",
+    },
+  ),
 
-      onPressed: () {
+  IconButton(
+    icon: const Icon(Icons.ios_share_outlined),
+    tooltip: "Share",
+    onPressed: () {
 
-        setState(() {
+      showModalBottomSheet(
 
-          messages.clear();
+        context: context,
 
-          currentConversation = null;
+        shape: const RoundedRectangleBorder(
 
-        });
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(24),
+          ),
 
-      },
-    ),
+        ),
 
-  ],
+        builder: (context) {
+
+          return SafeArea(
+
+            child: Padding(
+
+              padding: const EdgeInsets.symmetric(
+                vertical: 12,
+              ),
+
+              child: Column(
+
+                mainAxisSize: MainAxisSize.min,
+
+                children: [
+
+                 ListTile(
+  leading: const Icon(Icons.copy),
+  title: const Text("Copy Chat"),
+  onTap: () {
+    final chat = messages
+        .map((m) => "${m.isUser ? "You" : "StudyMate"}: ${m.text}")
+        .join("\n\n");
+
+    Clipboard.setData(
+      ClipboardData(text: chat),
+    );
+
+    Navigator.pop(context);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("Chat copied to clipboard."),
+      ),
+    );
+  },
+),
+                  const ListTile(
+
+                    leading: Icon(Icons.image_outlined),
+
+                    title: Text("Share as Image"),
+
+                  ),
+
+                 ListTile(
+
+  leading: const Icon(Icons.picture_as_pdf_outlined),
+
+  title: const Text("Export as PDF"),
+
+  onTap: () {
+ debugPrint("PDF BUTTON CLICKED");
+    Navigator.pop(context);
+
+    exportPDF();
+
+  },
+
+),
+
+                 ListTile(
+
+  leading: const Icon(Icons.share_outlined),
+
+  title: const Text("Share via Apps"),
+
+  onTap: () {
+
+    final chat = messages
+        .map((m) =>
+            "${m.isUser ? "You" : "AI"}: ${m.text}")
+        .join("\n\n");
+
+    Navigator.pop(context);
+
+    Share.share(
+      chat,
+      subject: "StudyMate Chat",
+    );
+
+  },
+
+),
+
+                  const Divider(),
+
+                  ListTile(
+
+                    leading: const Icon(Icons.close),
+
+                    title: const Text("Cancel"),
+
+                    onTap: () {
+
+                      Navigator.pop(context);
+
+                    },
+
+                  ),
+
+                ],
+
+              ),
+
+            ),
+
+          );
+
+        },
+
+      );
+
+    },
+
+  ),
+
+],
 ),
 
   body: SafeArea(
@@ -328,7 +486,7 @@ setState(() {
 
 
 
-            const Padding(
+             Padding(
 
               padding:
                   EdgeInsets.symmetric(
@@ -344,7 +502,7 @@ setState(() {
 
                 child: Text(
 
-                  "How can I help you study today?",
+                  "How may I assist you today?",
 
 
                   style:
@@ -352,8 +510,8 @@ setState(() {
 
                     fontSize: 16,
 
-                    color:
-                        Colors.grey,
+                  color:
+    Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
               ),
@@ -383,64 +541,6 @@ setState(() {
 
 
                             children: [
-
-                              Container(
-
-                                height: 90,
-
-                                width: 90,
-
-
-                                decoration:
-                                    BoxDecoration(
-
-                                  color:
-                                      Colors.blue.shade50,
-
-                                  shape:
-                                      BoxShape.circle,
-                                ),
-
-
-                                child:
-                                    const Icon(
-
-                                  Icons.auto_awesome,
-
-                                  size: 45,
-
-                                  color:
-                                      Colors.blue,
-                                ),
-                              ),
-
-
-
-                              const SizedBox(
-                                height: 20,
-                              ),
-
-
-
-                              const Text(
-
-                                "Start a conversation with StudyMateAI",
-
-                                style:
-                                    TextStyle(
-
-                                  fontSize: 18,
-
-                                  fontWeight:
-                                      FontWeight.w600,
-                                ),
-                              ),
-
-
-
-                              const SizedBox(
-                                height: 20,
-                              ),
 
 
 
@@ -505,7 +605,7 @@ setState(() {
 
 
                                 padding:
-                                    const EdgeInsets.all(14),
+                                    const EdgeInsets.all(10),
 
 
                                 constraints:
@@ -523,7 +623,7 @@ setState(() {
 
                                           ? Colors.blue
 
-                                          : Colors.grey.shade200,
+                                         : Theme.of(context).cardColor,
 
 
                                   borderRadius:
@@ -533,47 +633,22 @@ setState(() {
                                 ),
 
 
-                               child: Row(
+                              child: Row(
   mainAxisSize: MainAxisSize.min,
-  crossAxisAlignment: CrossAxisAlignment.start,
+  crossAxisAlignment: CrossAxisAlignment.center,
   children: [
 
     Flexible(
-      child: Text(
+      child: SelectableText(
         message.text,
         style: TextStyle(
           color: message.isUser
               ? Colors.white
-              : Colors.black,
+              : Theme.of(context).colorScheme.onSurface,
         ),
       ),
     ),
 
-    if (!message.isUser)
-      IconButton(
-        icon: const Icon(
-          Icons.copy,
-          size: 18,
-        ),
-
-        onPressed: () {
-
-          Clipboard.setData(
-            ClipboardData(
-              text: message.text,
-            ),
-          );
-
-          ScaffoldMessenger.of(context)
-              .showSnackBar(
-            const SnackBar(
-              content: Text(
-                "Copied!",
-              ),
-            ),
-          );
-        },
-      ),
   ],
 ),
                               ),
@@ -626,9 +701,9 @@ setState(() {
     textInputAction: TextInputAction.send,
     onSubmitted: (_) => sendMessage(),
     decoration: InputDecoration(
-      hintText: "Ask StudyMateAI anything...",
+      hintText: "Ask anything...",
       filled: true,
-      fillColor: Colors.grey.shade100,
+     fillColor: Theme.of(context).cardColor,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(30),
         borderSide: BorderSide.none,
