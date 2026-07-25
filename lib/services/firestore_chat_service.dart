@@ -98,14 +98,5 @@ class FirestoreChatService {
     });
   }
 
-  Future<void> toggleFavorite(
-    String conversationId,
-    bool value,
-  ) async {
-    await _conversationCollection
-        .doc(conversationId)
-        .update({
-      "isFavorite": value,
-    });
-  }
+ 
 }

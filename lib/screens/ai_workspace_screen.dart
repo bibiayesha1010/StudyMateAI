@@ -299,14 +299,6 @@ drawer: AppDrawer(
   actions: [
 
   IconButton(
-    icon: const Icon(Icons.favorite_border_outlined),
-    tooltip: "Favorite",
-    onPressed: () {
-
-    },
-  ),
-
-  IconButton(
     icon: const Icon(Icons.ios_share_outlined),
     tooltip: "Share",
     onPressed: () {

@@ -44,13 +44,7 @@ class ChatService {
     );
   }
 
-  void toggleFavorite(String id) {
-    final conversation = _conversations.firstWhere(
-      (conversation) => conversation.id == id,
-    );
-
-    conversation.isFavorite = !conversation.isFavorite;
-  }
+ 
 
   void renameConversation(
     String id,

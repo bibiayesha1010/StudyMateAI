@@ -190,45 +190,7 @@ Widget build(BuildContext context) {
 
 
 
-            ListTile(
-
-
-              leading: const Icon(
-
-                Icons.favorite,
-
-              ),
-
-
-
-              title: const Text(
-
-                "Favorite Chats",
-
-              ),
-
-
-
-              onTap: (){
-
-
-
-                Navigator.pop(context);
-
-
-
-              },
-
-
-
-            ),
-
-
-
-
-
-
-
+           
             ListTile(
 
 

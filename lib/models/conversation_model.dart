@@ -6,7 +6,6 @@ class Conversation {
   String title;
   final DateTime createdAt;
   DateTime updatedAt;
-  bool isFavorite;
   List<ChatMessage> messages;
 
   Conversation({
@@ -14,7 +13,6 @@ class Conversation {
     required this.title,
     required this.createdAt,
     required this.updatedAt,
-    this.isFavorite = false,
     required this.messages,
   });
 
@@ -27,7 +25,6 @@ class Conversation {
       title: data['title'] ?? "New Chat",
       createdAt: (data['createdAt'] as Timestamp).toDate(),
       updatedAt: (data['updatedAt'] as Timestamp).toDate(),
-      isFavorite: data['isFavorite'] ?? false,
       messages: [],
     );
   }
@@ -37,7 +34,7 @@ class Conversation {
       'title': title,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
-      'isFavorite': isFavorite,
+  
     };
   }
 }
