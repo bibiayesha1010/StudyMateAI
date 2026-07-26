@@ -4,13 +4,16 @@ class ChatMessage {
   final String text;
   final bool isUser;
   final DateTime timestamp;
+  final String? imagePath;
+  final String? fileName;
 
-  ChatMessage({
-    required this.text,
-    required this.isUser,
-    required this.timestamp,
-  });
-
+ ChatMessage({
+  required this.text,
+  required this.isUser,
+  required this.timestamp,
+  this.imagePath,
+  this.fileName,
+});
   factory ChatMessage.fromFirestore(
     Map<String, dynamic> data,
   ) {
@@ -18,6 +21,7 @@ class ChatMessage {
       text: data['text'] ?? '',
       isUser: data['isUser'] ?? false,
       timestamp: (data['timestamp'] as Timestamp).toDate(),
+      imagePath: data['imagePath'],
     );
   }
 
@@ -26,6 +30,7 @@ class ChatMessage {
       'text': text,
       'isUser': isUser,
       'timestamp': Timestamp.fromDate(timestamp),
+      'imagePath': imagePath,
     };
   }
 }

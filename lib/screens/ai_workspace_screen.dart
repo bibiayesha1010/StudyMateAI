@@ -7,6 +7,7 @@ import '../services/gemini_service.dart';
 import 'package:flutter/services.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:share_plus/share_plus.dart';
+import 'package:image_picker/image_picker.dart';
 
 
 class AIWorkspaceScreen extends StatefulWidget {
@@ -41,7 +42,6 @@ class AIWorkspaceScreen extends StatefulWidget {
 
 class _AIWorkspaceScreenState
     extends State<AIWorkspaceScreen> {
-
   final TextEditingController messageController =
       TextEditingController();
 
@@ -50,6 +50,9 @@ class _AIWorkspaceScreenState
 
   final List<ChatMessage> messages = [];
 Conversation? currentConversation;
+XFile? selectedImage;
+Uint8List? selectedImageBytes;
+
 
   String getGreeting() {
     final hour = DateTime.now().hour;
@@ -62,13 +65,62 @@ Conversation? currentConversation;
       return "Good Evening 🌙";
     }
   }
-@override
-void initState() {
-  super.initState();
+ void showPlusMenu() {
+  showModalBottomSheet(
+    context: context,
 
-  if (widget.conversation != null) {
-    currentConversation = widget.conversation;
-    messages.addAll(widget.conversation!.messages);
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(
+        top: Radius.circular(24),
+      ),
+    ),
+
+    builder: (context) {
+
+      return SafeArea(
+
+        child: Column(
+
+          mainAxisSize: MainAxisSize.min,
+
+          children: [
+
+           ListTile(
+  leading: const Icon(Icons.image_outlined),
+  title: const Text("Upload Image"),
+  onTap: () {
+    Navigator.pop(context);
+    pickImage();
+  },
+),
+
+
+           
+
+          ],
+
+        ),
+
+      );
+
+    },
+  );
+}
+Future<void> pickImage() async {
+
+  final ImagePicker picker = ImagePicker();
+
+  final XFile? image =
+      await picker.pickImage(
+        source: ImageSource.gallery,
+      );
+
+  if (image != null) {
+
+    setState(() {
+      selectedImage = image;
+    });
+
   }
 }
 
@@ -76,12 +128,13 @@ void initState() {
   final text = messageController.text.trim();
 
   if (text.isEmpty) return;
-
-  final userMessage = ChatMessage(
-    text: text,
-    isUser: true,
-     timestamp: DateTime.now(),
-  );
+final imageToSend = selectedImage;
+final userMessage = ChatMessage(
+  text: text,
+  isUser: true,
+  timestamp: DateTime.now(),
+  imagePath: imageToSend?.path,
+);
 
   setState(() {
     messages.add(userMessage);
@@ -98,10 +151,19 @@ void initState() {
   });
 
   messageController.clear();
+  setState(() {
+  selectedImage = null;
+});
 
- final response =
-    await geminiService.sendMessage(text);
+String finalPrompt = text;
 
+
+debugPrint("FINAL PROMPT LENGTH: ${finalPrompt.length}");
+final response =
+    await geminiService.sendMessage(
+      finalPrompt,
+      image: imageToSend,
+    );
 final aiMessage = ChatMessage(
   text: response,
   isUser: false,
@@ -115,6 +177,9 @@ setState(() {
     currentConversation!,
     aiMessage,
   );
+});
+setState(() {
+  selectedImage = null;
 });
 }
 Future<void> exportPDF() async {
@@ -494,7 +559,7 @@ drawer: AppDrawer(
 
                 child: Text(
 
-                  "How may I assist you today?",
+                  "How can I help you study today?",
 
 
                   style:
@@ -625,19 +690,20 @@ drawer: AppDrawer(
                                 ),
 
 
-                              child: Row(
+                             child: Column(
+  crossAxisAlignment: CrossAxisAlignment.start,
   mainAxisSize: MainAxisSize.min,
-  crossAxisAlignment: CrossAxisAlignment.center,
   children: [
 
-    Flexible(
-      child: SelectableText(
-        message.text,
-        style: TextStyle(
-          color: message.isUser
-              ? Colors.white
-              : Theme.of(context).colorScheme.onSurface,
-        ),
+
+const SizedBox(height: 8),
+
+    SelectableText(
+      message.text,
+      style: TextStyle(
+        color: message.isUser
+            ? Colors.white
+            : Theme.of(context).colorScheme.onSurface,
       ),
     ),
 
@@ -657,7 +723,37 @@ drawer: AppDrawer(
             ),
 
 
+if (selectedImage != null)
+  Padding(
+    padding: const EdgeInsets.all(8),
+    child: Align(
+      alignment: Alignment.centerLeft,
+      child: Stack(
+        children: [
 
+          Image.network(
+            selectedImage!.path,
+            height: 100,
+            width: 100,
+            fit: BoxFit.cover,
+          ),
+
+          Positioned(
+            right: 0,
+            child: IconButton(
+              icon: const Icon(Icons.close),
+              onPressed: () {
+                setState(() {
+                  selectedImage = null;
+                });
+              },
+            ),
+          ),
+
+        ],
+      ),
+    ),
+  ),
 
             Padding(
 
@@ -682,7 +778,7 @@ drawer: AppDrawer(
                       Icons.add_circle_outline,
                     ),
 
-                    onPressed: () {},
+                  onPressed: showPlusMenu,
                   ),
 
 
