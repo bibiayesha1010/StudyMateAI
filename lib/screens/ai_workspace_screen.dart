@@ -1,3 +1,7 @@
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import '../widgets/app_drawer.dart';
 import '../models/chatmessage_model.dart';
@@ -9,50 +13,55 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:share_plus/share_plus.dart';
 import 'package:image_picker/image_picker.dart';
 
-
 class AIWorkspaceScreen extends StatefulWidget {
-
-
   final String email;
-
 
   final Conversation? conversation;
 
-
-
   const AIWorkspaceScreen({
-
     super.key,
-
     required this.email,
-
     this.conversation,
-
   });
 
-
-
   @override
-  State<AIWorkspaceScreen> createState() =>
-      _AIWorkspaceScreenState();
-
-
+  State<AIWorkspaceScreen> createState() => _AIWorkspaceScreenState();
 }
 
+class _AIWorkspaceScreenState extends State<AIWorkspaceScreen> {
+  final TextEditingController messageController = TextEditingController();
 
-class _AIWorkspaceScreenState
-    extends State<AIWorkspaceScreen> {
-  final TextEditingController messageController =
-      TextEditingController();
-
-      final GeminiService geminiService = GeminiService();
-
+  final GeminiService geminiService = GeminiService();
 
   final List<ChatMessage> messages = [];
-Conversation? currentConversation;
-XFile? selectedImage;
-Uint8List? selectedImageBytes;
+  Conversation? currentConversation;
+  XFile? selectedImage;
+  Uint8List? selectedImageBytes;
 
+  // Image.file() uses dart:io, which doesn't exist on web — on web,
+  // XFile paths are blob URLs, which only Image.network can load.
+  // On mobile, paths are real files, which only Image.file can load.
+  Widget buildImageFromPath(
+    String path, {
+    required double height,
+    required double width,
+  }) {
+    if (kIsWeb) {
+      return Image.network(
+        path,
+        height: height,
+        width: width,
+        fit: BoxFit.cover,
+      );
+    }
+
+    return Image.file(
+      File(path),
+      height: height,
+      width: width,
+      fit: BoxFit.cover,
+    );
+  }
 
   String getGreeting() {
     final hour = DateTime.now().hour;
@@ -65,783 +74,536 @@ Uint8List? selectedImageBytes;
       return "Good Evening 🌙";
     }
   }
- void showPlusMenu() {
-  showModalBottomSheet(
-    context: context,
 
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(
-        top: Radius.circular(24),
-      ),
-    ),
-
-    builder: (context) {
-
-      return SafeArea(
-
-        child: Column(
-
-          mainAxisSize: MainAxisSize.min,
-
-          children: [
-
-           ListTile(
-  leading: const Icon(Icons.image_outlined),
-  title: const Text("Upload Image"),
-  onTap: () {
-    Navigator.pop(context);
-    pickImage();
-  },
-),
-
-
-           
-
-          ],
-
+  void showPlusMenu() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(24),
         ),
-
-      );
-
-    },
-  );
-}
-Future<void> pickImage() async {
-
-  final ImagePicker picker = ImagePicker();
-
-  final XFile? image =
-      await picker.pickImage(
-        source: ImageSource.gallery,
-      );
-
-  if (image != null) {
-
-    setState(() {
-      selectedImage = image;
-    });
-
-  }
-}
-
- Future<void> sendMessage() async {
-  final text = messageController.text.trim();
-
-  if (text.isEmpty) return;
-final imageToSend = selectedImage;
-final userMessage = ChatMessage(
-  text: text,
-  isUser: true,
-  timestamp: DateTime.now(),
-  imagePath: imageToSend?.path,
-);
-
-  setState(() {
-    messages.add(userMessage);
-
-    if (currentConversation == null) {
-      currentConversation =
-          ChatService.instance.createConversation(text);
-    } else {
-      ChatService.instance.addMessage(
-        currentConversation!,
-        userMessage,
-      );
-    }
-  });
-
-  messageController.clear();
-  setState(() {
-  selectedImage = null;
-});
-
-String finalPrompt = text;
-
-
-debugPrint("FINAL PROMPT LENGTH: ${finalPrompt.length}");
-final response =
-    await geminiService.sendMessage(
-      finalPrompt,
-      image: imageToSend,
-    );
-final aiMessage = ChatMessage(
-  text: response,
-  isUser: false,
-   timestamp: DateTime.now(),
-);
-
-setState(() {
-  messages.add(aiMessage);
-
-  ChatService.instance.addMessage(
-    currentConversation!,
-    aiMessage,
-  );
-});
-setState(() {
-  selectedImage = null;
-});
-}
-Future<void> exportPDF() async {
-
-  debugPrint("PDF EXPORT STARTED");
-
-  final pdf = pw.Document();
-
-  final chat = messages
-      .map((m) =>
-          "${m.isUser ? "You" : "AI"}: ${m.text}")
-      .join("\n\n");
-
-  pdf.addPage(
-    pw.Page(
-      build: (context) {
-        return pw.Padding(
-          padding: const pw.EdgeInsets.all(20),
-          child: pw.Text(chat),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.image_outlined),
+                title: const Text("Upload Image"),
+                onTap: () {
+                  Navigator.pop(context);
+                  pickImage();
+                },
+              ),
+            ],
+          ),
         );
       },
-    ),
-  );
-
-  final bytes = await pdf.save();
-
-  await Share.shareXFiles(
-    [
-      XFile.fromData(
-        bytes,
-        name: "StudyMate_Chat.pdf",
-        mimeType: "application/pdf",
-      ),
-    ],
-    text: "StudyMate Chat PDF",
-  );
-}
-  Widget suggestionChip(String text) {
-
-  return ActionChip(
-
-    label: Text(text),
-
-   backgroundColor:
-    Theme.of(context).cardColor,
-
-    onPressed: () {
-
-  String title = "";
-  String hint = "";
-  String promptPrefix = "";
-  String buttonText = "";
-
-  if (text == "Generate Notes") {
-
-    title = "Generate Notes";
-    hint = "Enter topic";
-    buttonText = "Generate";
-
-    promptPrefix =
-        "Generate detailed study notes for ";
-
-  } else if (text == "Explain Topic") {
-
-    title = "Explain Topic";
-    hint = "Enter topic";
-    buttonText = "Explain";
-
-    promptPrefix =
-        "Explain the topic ";
-
-  } else if (text == "Summarize") {
-
-    title = "Summarize";
-    hint = "Paste notes or enter topic";
-    buttonText = "Summarize";
-
-    promptPrefix =
-        "Summarize the following content:\n\n";
-
+    );
   }
 
-  final controller = TextEditingController();
+  Future<void> pickImage() async {
+    final ImagePicker picker = ImagePicker();
 
-  showDialog(
+    final XFile? image = await picker.pickImage(
+      source: ImageSource.gallery,
+    );
 
-    context: context,
+    if (image != null) {
+      setState(() {
+        selectedImage = image;
+      });
+    }
+  }
 
-    builder: (context) {
+  Future<void> sendMessage() async {
+    final text = messageController.text.trim();
 
-      return AlertDialog(
+    if (text.isEmpty) return;
 
-        title: Text(title),
+    final imageToSend = selectedImage;
 
-        content: TextField(
+    final userMessage = ChatMessage(
+      text: text,
+      isUser: true,
+      timestamp: DateTime.now(),
+      imagePath: imageToSend?.path,
+    );
 
-          controller: controller,
+    // Capture history BEFORE adding the new user message, so Gemini
+    // sees everything that came before this turn.
+    final historyForThisTurn = List<ChatMessage>.from(messages);
 
-          maxLines: text == "Summarize" ? 6 : 1,
+    setState(() {
+      messages.add(userMessage);
 
-          decoration: InputDecoration(
-            hintText: hint,
-          ),
-        ),
+      if (currentConversation == null) {
+        currentConversation = ChatService.instance.createConversation(text);
+      } else {
+        ChatService.instance.addMessage(
+          currentConversation!,
+          userMessage,
+        );
+      }
+    });
 
-        actions: [
+    messageController.clear();
+    setState(() {
+      selectedImage = null;
+    });
 
-          TextButton(
+    String finalPrompt = text;
 
-            onPressed: () {
+    debugPrint("FINAL PROMPT LENGTH: ${finalPrompt.length}");
 
-              Navigator.pop(context);
+    final response = await geminiService.sendMessage(
+      finalPrompt,
+      image: imageToSend,
+      history: historyForThisTurn,
+    );
 
-            },
+    final aiMessage = ChatMessage(
+      text: response,
+      isUser: false,
+      timestamp: DateTime.now(),
+    );
 
-            child: const Text("Cancel"),
+    setState(() {
+      messages.add(aiMessage);
 
-          ),
-
-          ElevatedButton(
-
-            onPressed: () {
-
-              final input =
-                  controller.text.trim();
-
-              if (input.isEmpty) return;
-
-              Navigator.pop(context);
-
-              messageController.text =
-                  promptPrefix + input;
-
-              sendMessage();
-
-            },
-
-            child: Text(buttonText),
-
-          ),
-
-        ],
-
+      ChatService.instance.addMessage(
+        currentConversation!,
+        aiMessage,
       );
+    });
+  }
 
-    },
+  Future<void> exportPDF() async {
+    debugPrint("PDF EXPORT STARTED");
 
-  );
+    final pdf = pw.Document();
 
-},
-  );
-}
+    final chat = messages
+        .map((m) => "${m.isUser ? "You" : "AI"}: ${m.text}")
+        .join("\n\n");
 
+    pdf.addPage(
+      pw.Page(
+        build: (context) {
+          return pw.Padding(
+            padding: const pw.EdgeInsets.all(20),
+            child: pw.Text(chat),
+          );
+        },
+      ),
+    );
+
+    final bytes = await pdf.save();
+
+    await Share.shareXFiles(
+      [
+        XFile.fromData(
+          bytes,
+          name: "StudyMate_Chat.pdf",
+          mimeType: "application/pdf",
+        ),
+      ],
+      text: "StudyMate Chat PDF",
+    );
+  }
+
+  Widget suggestionChip(String text) {
+    return ActionChip(
+      label: Text(text),
+      backgroundColor: Theme.of(context).cardColor,
+      onPressed: () {
+        String title = "";
+        String hint = "";
+        String promptPrefix = "";
+        String buttonText = "";
+
+        if (text == "Generate Notes") {
+          title = "Generate Notes";
+          hint = "Enter topic";
+          buttonText = "Generate";
+
+          promptPrefix = "Generate detailed study notes for ";
+        } else if (text == "Explain Topic") {
+          title = "Explain Topic";
+          hint = "Enter topic";
+          buttonText = "Explain";
+
+          promptPrefix = "Explain the topic ";
+        } else if (text == "Summarize") {
+          title = "Summarize";
+          hint = "Paste notes or enter topic";
+          buttonText = "Summarize";
+
+          promptPrefix = "Summarize the following content:\n\n";
+        }
+
+        final controller = TextEditingController();
+
+        showDialog(
+          context: context,
+          builder: (context) {
+            return AlertDialog(
+              title: Text(title),
+              content: TextField(
+                controller: controller,
+                maxLines: text == "Summarize" ? 6 : 1,
+                decoration: InputDecoration(
+                  hintText: hint,
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
+                  child: const Text("Cancel"),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    final input = controller.text.trim();
+
+                    if (input.isEmpty) return;
+
+                    Navigator.pop(context);
+
+                    messageController.text = promptPrefix + input;
+
+                    sendMessage();
+                  },
+                  child: Text(buttonText),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
 
   @override
   void dispose() {
-
     messageController.dispose();
 
     super.dispose();
   }
 
-
-
   @override
   Widget build(BuildContext context) {
-
-   return Scaffold(
-drawer: AppDrawer(
-  email: widget.email,
-),
-
- appBar: AppBar(
-  backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-
-  foregroundColor: Theme.of(context).colorScheme.onSurface,
-
-  elevation: 0,
-
-  title: const SizedBox.shrink(),
-
-  actions: [
-
-  IconButton(
-    icon: const Icon(Icons.ios_share_outlined),
-    tooltip: "Share",
-    onPressed: () {
-
-      showModalBottomSheet(
-
-        context: context,
-
-        shape: const RoundedRectangleBorder(
-
-          borderRadius: BorderRadius.vertical(
-            top: Radius.circular(24),
-          ),
-
-        ),
-
-        builder: (context) {
-
-          return SafeArea(
-
-            child: Padding(
-
-              padding: const EdgeInsets.symmetric(
-                vertical: 12,
-              ),
-
-              child: Column(
-
-                mainAxisSize: MainAxisSize.min,
-
-                children: [
-
-                 ListTile(
-  leading: const Icon(Icons.copy),
-  title: const Text("Copy Chat"),
-  onTap: () {
-    final chat = messages
-        .map((m) => "${m.isUser ? "You" : "StudyMate"}: ${m.text}")
-        .join("\n\n");
-
-    Clipboard.setData(
-      ClipboardData(text: chat),
-    );
-
-    Navigator.pop(context);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text("Chat copied to clipboard."),
+    return Scaffold(
+      drawer: AppDrawer(
+        email: widget.email,
       ),
-    );
-  },
-),
-                  const ListTile(
-
-                    leading: Icon(Icons.image_outlined),
-
-                    title: Text("Share as Image"),
-
+      appBar: AppBar(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        foregroundColor: Theme.of(context).colorScheme.onSurface,
+        elevation: 0,
+        title: const SizedBox.shrink(),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.ios_share_outlined),
+            tooltip: "Share",
+            onPressed: () {
+              showModalBottomSheet(
+                context: context,
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.vertical(
+                    top: Radius.circular(24),
                   ),
+                ),
+                builder: (context) {
+                  return SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 12,
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ListTile(
+                            leading: const Icon(Icons.copy),
+                            title: const Text("Copy Chat"),
+                            onTap: () {
+                              final chat = messages
+                                  .map((m) =>
+                                      "${m.isUser ? "You" : "StudyMate"}: ${m.text}")
+                                  .join("\n\n");
 
-                 ListTile(
+                              Clipboard.setData(
+                                ClipboardData(text: chat),
+                              );
 
-  leading: const Icon(Icons.picture_as_pdf_outlined),
+                              Navigator.pop(context);
 
-  title: const Text("Export as PDF"),
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text("Chat copied to clipboard."),
+                                ),
+                              );
+                            },
+                          ),
+                          const ListTile(
+                            leading: Icon(Icons.image_outlined),
+                            title: Text("Share as Image"),
+                          ),
+                          ListTile(
+                            leading: const Icon(Icons.picture_as_pdf_outlined),
+                            title: const Text("Export as PDF"),
+                            onTap: () {
+                              debugPrint("PDF BUTTON CLICKED");
+                              Navigator.pop(context);
 
-  onTap: () {
- debugPrint("PDF BUTTON CLICKED");
-    Navigator.pop(context);
+                              exportPDF();
+                            },
+                          ),
+                          ListTile(
+                            leading: const Icon(Icons.share_outlined),
+                            title: const Text("Share via Apps"),
+                            onTap: () {
+                              final chat = messages
+                                  .map((m) =>
+                                      "${m.isUser ? "You" : "AI"}: ${m.text}")
+                                  .join("\n\n");
 
-    exportPDF();
+                              Navigator.pop(context);
 
-  },
-
-),
-
-                 ListTile(
-
-  leading: const Icon(Icons.share_outlined),
-
-  title: const Text("Share via Apps"),
-
-  onTap: () {
-
-    final chat = messages
-        .map((m) =>
-            "${m.isUser ? "You" : "AI"}: ${m.text}")
-        .join("\n\n");
-
-    Navigator.pop(context);
-
-    Share.share(
-      chat,
-      subject: "StudyMate Chat",
-    );
-
-  },
-
-),
-
-                  const Divider(),
-
-                  ListTile(
-
-                    leading: const Icon(Icons.close),
-
-                    title: const Text("Cancel"),
-
-                    onTap: () {
-
-                      Navigator.pop(context);
-
-                    },
-
-                  ),
-
-                ],
-
-              ),
-
-            ),
-
-          );
-
-        },
-
-      );
-
-    },
-
-  ),
-
-],
-),
-
-  body: SafeArea(
-
+                              Share.share(
+                                chat,
+                                subject: "StudyMate Chat",
+                              );
+                            },
+                          ),
+                          const Divider(),
+                          ListTile(
+                            leading: const Icon(Icons.close),
+                            title: const Text("Cancel"),
+                            onTap: () {
+                              Navigator.pop(context);
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ],
+      ),
+      body: SafeArea(
         child: Column(
-
           children: [
-
-
             Padding(
-
-              padding:
-                  const EdgeInsets.fromLTRB(
+              padding: const EdgeInsets.fromLTRB(
                 20,
                 20,
                 20,
                 8,
               ),
-
-
               child: Align(
-
-                alignment:
-                    Alignment.centerLeft,
-
-
+                alignment: Alignment.centerLeft,
                 child: Text(
-
                   getGreeting(),
-
-
-                  style:
-                      const TextStyle(
-
+                  style: const TextStyle(
                     fontSize: 28,
-
-                    fontWeight:
-                        FontWeight.bold,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
             ),
-
-
-
-             Padding(
-
-              padding:
-                  EdgeInsets.symmetric(
+            Padding(
+              padding: EdgeInsets.symmetric(
                 horizontal: 20,
               ),
-
-
               child: Align(
-
-                alignment:
-                    Alignment.centerLeft,
-
-
+                alignment: Alignment.centerLeft,
                 child: Text(
-
                   "How can I help you study today?",
-
-
-                  style:
-                      TextStyle(
-
+                  style: TextStyle(
                     fontSize: 16,
-
-                  color:
-    Theme.of(context).colorScheme.onSurfaceVariant,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
               ),
             ),
-
-
-
             const SizedBox(
               height: 20,
             ),
-
-
-
-
             Expanded(
-
-              child:
-
-                  messages.isEmpty
-
-                      ? Center(
-
-                          child: Column(
-
-                            mainAxisAlignment:
-                                MainAxisAlignment.center,
-
-
+              child: messages.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Wrap(
+                            spacing: 10,
                             children: [
-
-
-
-                              Wrap(
-
-                                spacing: 10,
-
-                                children: [
-
-                                  suggestionChip(
-                                    "Generate Notes",
-                                  ),
-
-                                  suggestionChip(
-                                    "Explain Topic",
-                                  ),
-
-                                  suggestionChip(
-                                    "Summarize",
-                                  ),
-                                ],
+                              suggestionChip(
+                                "Generate Notes",
+                              ),
+                              suggestionChip(
+                                "Explain Topic",
+                              ),
+                              suggestionChip(
+                                "Summarize",
                               ),
                             ],
                           ),
-                        )
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: messages.length,
+                      itemBuilder: (context, index) {
+                        final message = messages[index];
 
-
-                      : ListView.builder(
-
-                          padding:
-                              const EdgeInsets.all(16),
-
-
-                          itemCount:
-                              messages.length,
-
-
-                          itemBuilder:
-                              (context, index) {
-
-                            final message =
-                                messages[index];
-
-
-                            return Align(
-
-                              alignment:
-
-                                  message.isUser
-
-                                      ? Alignment.centerRight
-
-                                      : Alignment.centerLeft,
-
-
-                              child: Container(
-
-                                margin:
-                                    const EdgeInsets.symmetric(
-                                  vertical: 6,
-                                ),
-
-
-                                padding:
-                                    const EdgeInsets.all(10),
-
-
-                                constraints:
-                                    const BoxConstraints(
-                                  maxWidth: 300,
-                                ),
-
-
-                                decoration:
-                                    BoxDecoration(
-
-                                  color:
-
-                                      message.isUser
-
-                                          ? Colors.blue
-
-                                         : Theme.of(context).cardColor,
-
-
-                                  borderRadius:
-                                      BorderRadius.circular(
-                                    18,
+                        return Align(
+                          alignment: message.isUser
+                              ? Alignment.centerRight
+                              : Alignment.centerLeft,
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(
+                              vertical: 6,
+                            ),
+                            padding: const EdgeInsets.all(10),
+                            constraints: const BoxConstraints(
+                              maxWidth: 300,
+                            ),
+                            decoration: BoxDecoration(
+                              color: message.isUser
+                                  ? Colors.blue
+                                  : Theme.of(context).cardColor,
+                              borderRadius: BorderRadius.circular(
+                                18,
+                              ),
+                              border: message.isUser
+                                  ? null
+                                  : Border.all(
+                                      color: Theme.of(context).dividerColor,
+                                      width: 1,
+                                    ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (message.imagePath != null) ...[
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: buildImageFromPath(
+                                      message.imagePath!,
+                                      height: 150,
+                                      width: 150,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                ],
+                                const SizedBox(height: 8),
+                                SelectableText(
+                                  message.text,
+                                  style: TextStyle(
+                                    color: message.isUser
+                                        ? Colors.white
+                                        : Theme.of(context)
+                                            .colorScheme
+                                            .onSurface,
                                   ),
                                 ),
-
-
-                             child: Column(
-  crossAxisAlignment: CrossAxisAlignment.start,
-  mainAxisSize: MainAxisSize.min,
-  children: [
-
-
-const SizedBox(height: 8),
-
-    SelectableText(
-      message.text,
-      style: TextStyle(
-        color: message.isUser
-            ? Colors.white
-            : Theme.of(context).colorScheme.onSurface,
-      ),
-    ),
-
-  ],
-),
-                              ),
-                            );
-                          },
-                        ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
             ),
-
-
-
-
             const Divider(
               height: 1,
             ),
-
-
-if (selectedImage != null)
-  Padding(
-    padding: const EdgeInsets.all(8),
-    child: Align(
-      alignment: Alignment.centerLeft,
-      child: Stack(
-        children: [
-
-          Image.network(
-            selectedImage!.path,
-            height: 100,
-            width: 100,
-            fit: BoxFit.cover,
-          ),
-
-          Positioned(
-            right: 0,
-            child: IconButton(
-              icon: const Icon(Icons.close),
-              onPressed: () {
-                setState(() {
-                  selectedImage = null;
-                });
-              },
-            ),
-          ),
-
-        ],
-      ),
-    ),
-  ),
-
+            if (selectedImage != null)
+              Padding(
+                padding: const EdgeInsets.all(8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: buildImageFromPath(
+                          selectedImage!.path,
+                          height: 100,
+                          width: 100,
+                        ),
+                      ),
+                      Positioned(
+                        right: 0,
+                        child: IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () {
+                            setState(() {
+                              selectedImage = null;
+                            });
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             Padding(
-
-              padding:
-                  const EdgeInsets.fromLTRB(
+              padding: const EdgeInsets.fromLTRB(
                 12,
                 8,
                 12,
                 16,
               ),
-
-
               child: Row(
-
                 children: [
-
-
                   IconButton(
-
-                    icon:
-                        const Icon(
+                    icon: const Icon(
                       Icons.add_circle_outline,
                     ),
-
-                  onPressed: showPlusMenu,
+                    onPressed: showPlusMenu,
                   ),
-
-
-
-                 Expanded(
-  child: TextField(
-    controller: messageController,
-    textInputAction: TextInputAction.send,
-    onSubmitted: (_) => sendMessage(),
-    decoration: InputDecoration(
-      hintText: "Ask anything...",
-      filled: true,
-     fillColor: Theme.of(context).cardColor,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(30),
-        borderSide: BorderSide.none,
-      ),
-    ),
-  ),
-),
-
-
-
+                  Expanded(
+                    child: TextField(
+                      controller: messageController,
+                      textInputAction: TextInputAction.send,
+                      onSubmitted: (_) => sendMessage(),
+                      decoration: InputDecoration(
+                        hintText: "Ask anything...",
+                        filled: true,
+                        fillColor: Theme.of(context).cardColor,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(30),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                  ),
                   IconButton(
-
-                    icon:
-                        const Icon(
+                    icon: const Icon(
                       Icons.mic_none,
                     ),
-
                     onPressed: () {},
                   ),
-
-
-
                   Container(
-
-                    decoration:
-                        const BoxDecoration(
-
-                      color:
-                          Colors.blue,
-
-                      shape:
-                          BoxShape.circle,
+                    decoration: const BoxDecoration(
+                      color: Colors.blue,
+                      shape: BoxShape.circle,
                     ),
-
-
-                    child:
-                        IconButton(
-
-                      icon:
-                          const Icon(
-
+                    child: IconButton(
+                      icon: const Icon(
                         Icons.arrow_upward,
-
-                        color:
-                            Colors.white,
+                        color: Colors.white,
                       ),
-
-
-                      onPressed:
-                          sendMessage,
+                      onPressed: sendMessage,
                     ),
                   ),
                 ],
