@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter/foundation.dart';
@@ -6,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 
 import '../models/chatmessage_model.dart';
+import '../models/quiz_model.dart';
 
 class GeminiService {
   final String geminiKey = dotenv.env['GEMINI_API_KEY'] ?? "";
@@ -26,14 +28,15 @@ Your role:
 - Encourage good study habits — suggest a follow-up question or a way to self-test when it fits naturally, but don't be preachy about it.
 - Keep answers focused and skimmable. Avoid long-winded intros like "Great question!" — just help.
 - If you don't know something or the image is unclear, say so plainly rather than guessing.
+- Don't open with a bulleted list of things the student "can do" (like "upload a photo" or "ask me to quiz you") — the app already shows those as buttons above the input box, so repeating them is redundant. Just respond naturally to whatever the student actually asked or sent.
 """;
 
-  /// Sends [message] (optionally with an [image]) to Gemini, including
-  /// [history] — the prior messages in this conversation — so the model
-  /// has full context every time, whether the turn is text or image.
+  /// Sends [message] (optionally with an [image] and/or a [pdfBytes]
+  /// PDF) to Gemini, including [history] so context carries over.
   Future<String> sendMessage(
     String message, {
     XFile? image,
+    Uint8List? pdfBytes,
     List<ChatMessage> history = const [],
   }) async {
     try {
@@ -70,22 +73,40 @@ Your role:
         });
       }
 
+      if (pdfBytes != null) {
+        final base64Pdf = base64Encode(pdfBytes);
+
+        currentParts.add({
+          "inline_data": {
+            "mime_type": "application/pdf",
+            "data": base64Pdf,
+          },
+        });
+      }
+
       contents.add({
         "role": "user",
         "parts": currentParts,
       });
 
+      final requestBody = jsonEncode({
+        "system_instruction": {
+          "parts": [
+            {"text": studyMateSystemPrompt},
+          ],
+        },
+        "contents": contents,
+        "generationConfig": {
+          "thinkingConfig": {"thinkingBudget": 0},
+        },
+      });
+
+      debugPrint("GEMINI REQUEST BODY: $requestBody");
+
       final response = await http.post(
         uri,
         headers: {"Content-Type": "application/json"},
-        body: jsonEncode({
-          "system_instruction": {
-            "parts": [
-              {"text": studyMateSystemPrompt},
-            ],
-          },
-          "contents": contents,
-        }),
+        body: requestBody,
       );
 
       debugPrint("GEMINI STATUS: ${response.statusCode}");
@@ -104,5 +125,95 @@ Your role:
       debugPrint("GEMINI ERROR: $e");
       return "Error: $e";
     }
+  }
+
+  /// Generates a quiz as real, structured data (not chat prose) so
+  /// scoring can be computed exactly, client-side, with no ambiguity.
+  /// [content] is the topic or the notes/explanation text to quiz on.
+  /// [image] can optionally be included (e.g. a textbook page) so the
+  /// quiz is grounded in exactly what was uploaded.
+  Future<QuizModel> generateQuiz(
+    String content, {
+    XFile? image,
+    int numQuestions = 5,
+  }) async {
+    final uri = Uri.parse(
+      "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$geminiKey",
+    );
+
+    final prompt = """
+Based on the following study content, create a $numQuestions-question multiple-choice quiz.
+
+Content:
+$content
+
+Respond with ONLY valid JSON, no markdown code fences, no extra commentary, in exactly this shape:
+{
+  "topic": "short topic name",
+  "questions": [
+    {
+      "question": "the question text",
+      "options": ["option A", "option B", "option C", "option D"],
+      "correctIndex": 0,
+      "explanation": "one short sentence on why that's correct"
+    }
+  ]
+}
+""";
+
+    final parts = <Map<String, dynamic>>[
+      {"text": prompt},
+    ];
+
+    if (image != null) {
+      final bytes = await image.readAsBytes();
+      final base64Image = base64Encode(bytes);
+
+      parts.add({
+        "inline_data": {
+          "mime_type": "image/jpeg",
+          "data": base64Image,
+        },
+      });
+    }
+
+    final response = await http.post(
+      uri,
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
+        "contents": [
+          {
+            "role": "user",
+            "parts": parts,
+          },
+        ],
+      }),
+    );
+
+    debugPrint("GEMINI QUIZ STATUS: ${response.statusCode}");
+    debugPrint("GEMINI QUIZ RESPONSE: ${response.body}");
+
+    if (response.statusCode != 200) {
+      throw Exception("Quiz generation failed: ${response.body}");
+    }
+
+    final data = jsonDecode(response.body);
+
+    String text =
+        data["candidates"]?[0]?["content"]?["parts"]?[0]?["text"] ?? "";
+
+    // Gemini sometimes wraps JSON in ```json fences even when asked not to.
+    text = text.trim();
+    if (text.startsWith("```")) {
+      text = text
+          .replaceFirst(RegExp(r'^```json'), '')
+          .replaceFirst(RegExp(r'^```'), '')
+          .replaceFirst(RegExp(r'```$'), '')
+          .trim();
+    }
+
+    final quizJson = jsonDecode(text);
+
+    return QuizModel.fromJson(quizJson);
   }
 }

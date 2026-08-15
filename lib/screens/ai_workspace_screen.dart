@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'dart:typed_data';
-
+import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import '../widgets/app_drawer.dart';
@@ -8,10 +8,14 @@ import '../models/chatmessage_model.dart';
 import '../models/conversation_model.dart';
 import '../services/chat_service.dart';
 import '../services/gemini_service.dart';
+import '../screens/quiz_screen.dart';
 import 'package:flutter/services.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:share_plus/share_plus.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:archive/archive.dart';
+import 'package:xml/xml.dart';
 
 class AIWorkspaceScreen extends StatefulWidget {
   final String email;
@@ -37,6 +41,9 @@ class _AIWorkspaceScreenState extends State<AIWorkspaceScreen> {
   Conversation? currentConversation;
   XFile? selectedImage;
   Uint8List? selectedImageBytes;
+  PlatformFile? selectedPdf;
+  String? selectedDocText; // extracted plain text from a .docx
+  String? selectedDocName;
 
   // Image.file() uses dart:io, which doesn't exist on web — on web,
   // XFile paths are blob URLs, which only Image.network can load.
@@ -60,6 +67,106 @@ class _AIWorkspaceScreenState extends State<AIWorkspaceScreen> {
       height: height,
       width: width,
       fit: BoxFit.cover,
+    );
+  }
+
+  // Applies a suggestion directly to whatever's already in the input
+  // (typed text and/or a selected image), instead of opening a dialog.
+  void applyQuickAction(String label) {
+    if (label == "Generate Quiz") {
+      startQuiz();
+      return;
+    }
+
+    final typed = messageController.text.trim();
+
+    String prompt;
+
+    if (label == "Generate Notes") {
+      prompt = typed.isNotEmpty
+          ? "Generate detailed study notes for $typed"
+          : "Generate detailed study notes based on this.";
+    } else if (label == "Explain Topic") {
+      prompt = typed.isNotEmpty
+          ? "Explain the topic $typed"
+          : "Explain what this is about.";
+    } else {
+      // Summarize
+      prompt = typed.isNotEmpty
+          ? "Summarize the following content:\n\n$typed"
+          : "Summarize this.";
+    }
+
+    messageController.text = prompt;
+
+    sendMessage();
+  }
+
+  // Builds quiz content from the whole conversation so far (what was
+  // uploaded + explained), or from typed text if that's all there is,
+  // then generates a real structured quiz and opens the quiz screen.
+  Future<void> startQuiz({String? topicOverride}) async {
+    final typed = messageController.text.trim();
+
+    String content;
+
+    if (topicOverride != null && topicOverride.isNotEmpty) {
+      content = topicOverride;
+    } else if (typed.isNotEmpty) {
+      content = typed;
+    } else if (messages.isNotEmpty) {
+      content = messages.map((m) => m.text).join("\n\n");
+    } else {
+      content = "general knowledge";
+    }
+
+    final imageForQuiz = selectedImage;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+
+    try {
+      final quiz = await geminiService.generateQuiz(
+        content,
+        image: imageForQuiz,
+      );
+
+      if (!mounted) return;
+
+      Navigator.pop(context); // close loading dialog
+
+      messageController.clear();
+      setState(() {
+        selectedImage = null;
+      });
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => QuizScreen(quiz: quiz),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      Navigator.pop(context); // close loading dialog
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Couldn't generate quiz: $e")),
+      );
+    }
+  }
+
+  Widget quickActionChip(String label) {
+    return ActionChip(
+      label: Text(label),
+      backgroundColor: Theme.of(context).cardColor,
+      onPressed: () => applyQuickAction(label),
     );
   }
 
@@ -96,10 +203,115 @@ class _AIWorkspaceScreenState extends State<AIWorkspaceScreen> {
                   pickImage();
                 },
               ),
+              ListTile(
+                leading: const Icon(Icons.picture_as_pdf_outlined),
+                title: const Text("Upload files"),
+                onTap: () {
+                  Navigator.pop(context);
+                  pickPdf();
+                },
+              ),
             ],
           ),
         );
       },
+    );
+  }
+
+  // Extracts plain text from a .docx file's internal XML. .docx is a
+  // ZIP archive containing word/document.xml with the actual text in
+  // <w:t> nodes — Gemini can't read the raw ZIP bytes as if it were
+  // a PDF, so we pull the text out here instead.
+  String _extractDocxText(Uint8List bytes) {
+    final archive = ZipDecoder().decodeBytes(bytes);
+    final documentFile = archive.files.firstWhere(
+      (f) => f.name == 'word/document.xml',
+      orElse: () => throw Exception('Not a valid .docx file'),
+    );
+    final xmlContent = utf8.decode(documentFile.content as List<int>);
+    final document = XmlDocument.parse(xmlContent);
+    final textNodes = document.findAllElements('w:t');
+
+    final buffer = StringBuffer();
+    for (final node in textNodes) {
+      buffer.write(node.innerText);
+      buffer.write(' ');
+    }
+    return buffer.toString().trim();
+  }
+
+  Future<void> pickPdf() async {
+    debugPrint("PICKER: opening...");
+
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf', 'docx'],
+      withData: true,
+    );
+
+    if (result == null || result.files.isEmpty) {
+      debugPrint("PICKER: cancelled or empty");
+      return;
+    }
+
+    final file = result.files.single;
+    final bytes = file.bytes;
+    final ext = file.extension?.toLowerCase();
+
+    debugPrint("PICKER FILE: name=${file.name}, ext=$ext, bytes=${bytes?.length}");
+
+    if (bytes == null) {
+      debugPrint("PICKER: bytes were null, nothing set");
+      return;
+    }
+
+    if (ext == 'pdf') {
+      setState(() {
+        selectedPdf = file;
+        selectedDocText = null;
+        selectedDocName = null;
+        selectedImage = null;
+      });
+      return;
+    }
+
+    if (ext == 'docx') {
+      try {
+        final extracted = _extractDocxText(bytes);
+
+        if (extracted.isEmpty) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Couldn't find any text in that Word document."),
+            ),
+          );
+          return;
+        }
+
+        setState(() {
+          selectedDocText = extracted;
+          selectedDocName = file.name;
+          selectedPdf = null;
+          selectedImage = null;
+        });
+      } catch (e) {
+        debugPrint("DOCX EXTRACTION ERROR: $e");
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Couldn't read that Word file: $e")),
+        );
+      }
+      return;
+    }
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          "Only PDF and .docx Word files are supported (not the older .doc format).",
+        ),
+      ),
     );
   }
 
@@ -113,6 +325,9 @@ class _AIWorkspaceScreenState extends State<AIWorkspaceScreen> {
     if (image != null) {
       setState(() {
         selectedImage = image;
+        selectedPdf = null;
+        selectedDocText = null;
+        selectedDocName = null;
       });
     }
   }
@@ -123,12 +338,16 @@ class _AIWorkspaceScreenState extends State<AIWorkspaceScreen> {
     if (text.isEmpty) return;
 
     final imageToSend = selectedImage;
+    final pdfToSend = selectedPdf;
+    final docTextToSend = selectedDocText;
+    final docNameToSend = selectedDocName;
 
     final userMessage = ChatMessage(
       text: text,
       isUser: true,
       timestamp: DateTime.now(),
       imagePath: imageToSend?.path,
+      fileName: pdfToSend?.name ?? docNameToSend,
     );
 
     // Capture history BEFORE adding the new user message, so Gemini
@@ -151,15 +370,26 @@ class _AIWorkspaceScreenState extends State<AIWorkspaceScreen> {
     messageController.clear();
     setState(() {
       selectedImage = null;
+      selectedPdf = null;
+      selectedDocText = null;
+      selectedDocName = null;
     });
 
+    // A .docx isn't sent as inline_data (Gemini would try to read it
+    // as if it were a PDF and reject it) — its extracted text is
+    // folded straight into the prompt instead.
     String finalPrompt = text;
+    if (docTextToSend != null) {
+      finalPrompt =
+          "$text\n\n[Content from uploaded notes \"$docNameToSend\"]:\n$docTextToSend";
+    }
 
     debugPrint("FINAL PROMPT LENGTH: ${finalPrompt.length}");
 
     final response = await geminiService.sendMessage(
       finalPrompt,
       image: imageToSend,
+      pdfBytes: pdfToSend?.bytes,
       history: historyForThisTurn,
     );
 
@@ -210,79 +440,6 @@ class _AIWorkspaceScreenState extends State<AIWorkspaceScreen> {
         ),
       ],
       text: "StudyMate Chat PDF",
-    );
-  }
-
-  Widget suggestionChip(String text) {
-    return ActionChip(
-      label: Text(text),
-      backgroundColor: Theme.of(context).cardColor,
-      onPressed: () {
-        String title = "";
-        String hint = "";
-        String promptPrefix = "";
-        String buttonText = "";
-
-        if (text == "Generate Notes") {
-          title = "Generate Notes";
-          hint = "Enter topic";
-          buttonText = "Generate";
-
-          promptPrefix = "Generate detailed study notes for ";
-        } else if (text == "Explain Topic") {
-          title = "Explain Topic";
-          hint = "Enter topic";
-          buttonText = "Explain";
-
-          promptPrefix = "Explain the topic ";
-        } else if (text == "Summarize") {
-          title = "Summarize";
-          hint = "Paste notes or enter topic";
-          buttonText = "Summarize";
-
-          promptPrefix = "Summarize the following content:\n\n";
-        }
-
-        final controller = TextEditingController();
-
-        showDialog(
-          context: context,
-          builder: (context) {
-            return AlertDialog(
-              title: Text(title),
-              content: TextField(
-                controller: controller,
-                maxLines: text == "Summarize" ? 6 : 1,
-                decoration: InputDecoration(
-                  hintText: hint,
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                  },
-                  child: const Text("Cancel"),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    final input = controller.text.trim();
-
-                    if (input.isEmpty) return;
-
-                    Navigator.pop(context);
-
-                    messageController.text = promptPrefix + input;
-
-                    sendMessage();
-                  },
-                  child: Text(buttonText),
-                ),
-              ],
-            );
-          },
-        );
-      },
     );
   }
 
@@ -441,19 +598,25 @@ class _AIWorkspaceScreenState extends State<AIWorkspaceScreen> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Wrap(
-                            spacing: 10,
-                            children: [
-                              suggestionChip(
-                                "Generate Notes",
-                              ),
-                              suggestionChip(
-                                "Explain Topic",
-                              ),
-                              suggestionChip(
-                                "Summarize",
-                              ),
-                            ],
+                          Icon(
+                            Icons.school_rounded,
+                            size: 64,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurfaceVariant
+                                .withOpacity(0.35),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            "StudyMate",
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w600,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant
+                                  .withOpacity(0.5),
+                            ),
                           ),
                         ],
                       ),
@@ -477,18 +640,10 @@ class _AIWorkspaceScreenState extends State<AIWorkspaceScreen> {
                               maxWidth: 300,
                             ),
                             decoration: BoxDecoration(
-                              color: message.isUser
-                                  ? Colors.blue
-                                  : Theme.of(context).cardColor,
+                              color: const Color(0xFFE7ECF3),
                               borderRadius: BorderRadius.circular(
                                 18,
                               ),
-                              border: message.isUser
-                                  ? null
-                                  : Border.all(
-                                      color: Theme.of(context).dividerColor,
-                                      width: 1,
-                                    ),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -505,15 +660,47 @@ class _AIWorkspaceScreenState extends State<AIWorkspaceScreen> {
                                   ),
                                   const SizedBox(height: 8),
                                 ],
+                                if (message.fileName != null) ...[
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 8,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.red.withOpacity(0.08),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(
+                                          Icons.picture_as_pdf,
+                                          color: Colors.red,
+                                          size: 20,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Flexible(
+                                          child: Text(
+                                            message.fileName!,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .onSurface,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                ],
                                 const SizedBox(height: 8),
                                 SelectableText(
                                   message.text,
                                   style: TextStyle(
-                                    color: message.isUser
-                                        ? Colors.white
-                                        : Theme.of(context)
-                                            .colorScheme
-                                            .onSurface,
+                                    color:
+                                        Theme.of(context).colorScheme.onSurface,
                                   ),
                                 ),
                               ],
@@ -556,6 +743,60 @@ class _AIWorkspaceScreenState extends State<AIWorkspaceScreen> {
                   ),
                 ),
               ),
+            if (selectedPdf != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Chip(
+                    avatar: const Icon(
+                      Icons.picture_as_pdf,
+                      color: Colors.red,
+                    ),
+                    label: Text(selectedPdf!.name),
+                    onDeleted: () {
+                      setState(() {
+                        selectedPdf = null;
+                      });
+                    },
+                  ),
+                ),
+              ),
+            if (selectedDocText != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Chip(
+                    avatar: const Icon(
+                      Icons.description,
+                      color: Colors.blue,
+                    ),
+                    label: Text(selectedDocName ?? "Word document"),
+                    onDeleted: () {
+                      setState(() {
+                        selectedDocText = null;
+                        selectedDocName = null;
+                      });
+                    },
+                  ),
+                ),
+              ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Wrap(
+                  spacing: 8,
+                  children: [
+                    quickActionChip("Generate Notes"),
+                    quickActionChip("Explain Topic"),
+                    quickActionChip("Summarize"),
+                    quickActionChip("Generate Quiz"),
+                  ],
+                ),
+              ),
+            ),
             Padding(
               padding: const EdgeInsets.fromLTRB(
                 12,
