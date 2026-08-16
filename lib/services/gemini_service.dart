@@ -16,8 +16,33 @@ class GeminiService {
   // for both text and image understanding as of Aug 2026.
   final String model = "gemini-3.5-flash";
 
-  // This shapes how Gemini behaves on every call — tweak freely.
-  final String studyMateSystemPrompt = """
+  // Turns a raw HTTP status/response into a clean message safe to show
+  // in the UI — never exposes the provider name or raw JSON to the user.
+  String _friendlyErrorMessage(int statusCode, String rawBody) {
+    switch (statusCode) {
+      case 429:
+        return "StudyMate has hit its usage limit for now. Please try again in a little while.";
+      case 503:
+      case 500:
+      case 502:
+      case 504:
+        return "StudyMate is a bit busy right now. Please try again in a moment.";
+      case 400:
+        return "Sorry, I couldn't process that. Try rephrasing, or check the file you attached.";
+      case 401:
+      case 403:
+        return "StudyMate isn't set up correctly right now. Please contact support.";
+      default:
+        return "Something went wrong on StudyMate's end. Please try again.";
+    }
+  }
+
+  // This shapes how Gemini behaves on every call. [language] is the
+  // student's selected app language — English needs no extra
+  // instruction, anything else tells the model to reply in that
+  // language while keeping the same behavior rules.
+  String _buildSystemPrompt(String language) {
+    final base = """
 You are StudyMate, a friendly and encouraging AI study companion for students.
 
 Your role:
@@ -28,16 +53,26 @@ Your role:
 - Encourage good study habits — suggest a follow-up question or a way to self-test when it fits naturally, but don't be preachy about it.
 - Keep answers focused and skimmable. Avoid long-winded intros like "Great question!" — just help.
 - If you don't know something or the image is unclear, say so plainly rather than guessing.
-- Don't open with a bulleted list of things the student "can do" (like "upload a photo" or "ask me to quiz you") — the app already shows those as buttons above the input box, so repeating them is redundant. Just respond naturally to whatever the student actually asked or sent.
+- Don't describe or list what the student "can do" (uploading photos, asking for a quiz, pasting notes, etc.) in ANY format — not as bullets, not as a sentence. The app's own buttons above the input box already show those options, so mentioning them at all is redundant. If the student's message is just a greeting or the chat just started, reply with a short, warm hello and ask what they're working on — nothing about your own capabilities.
+- Never use LaTeX or math-delimiter notation like \$CO_2\$, \$x^2\$, or \$\$...\$\$ for formulas, chemical notation, or equations — the app cannot render LaTeX and it will show up as literal dollar signs. Write formulas in plain text instead, e.g. "CO2", "H2O", "x^2" or "x squared".
 """;
+
+    if (language != "English") {
+      return "$base\n- Reply in $language, regardless of what language the student writes in, unless they explicitly ask you to switch.";
+    }
+
+    return base;
+  }
 
   /// Sends [message] (optionally with an [image] and/or a [pdfBytes]
   /// PDF) to Gemini, including [history] so context carries over.
+  /// [language] controls what language StudyMate replies in.
   Future<String> sendMessage(
     String message, {
     XFile? image,
     Uint8List? pdfBytes,
     List<ChatMessage> history = const [],
+    String language = "English",
   }) async {
     try {
       final uri = Uri.parse(
@@ -92,7 +127,7 @@ Your role:
       final requestBody = jsonEncode({
         "system_instruction": {
           "parts": [
-            {"text": studyMateSystemPrompt},
+            {"text": _buildSystemPrompt(language)},
           ],
         },
         "contents": contents,
@@ -113,7 +148,7 @@ Your role:
       debugPrint("GEMINI RESPONSE: ${response.body}");
 
       if (response.statusCode != 200) {
-        return "Gemini Error: ${response.body}";
+        return _friendlyErrorMessage(response.statusCode, response.body);
       }
 
       final data = jsonDecode(response.body);
@@ -123,7 +158,7 @@ Your role:
       return text ?? "No response received.";
     } catch (e) {
       debugPrint("GEMINI ERROR: $e");
-      return "Error: $e";
+      return "Something went wrong. Please try again.";
     }
   }
 
@@ -135,14 +170,21 @@ Your role:
   Future<QuizModel> generateQuiz(
     String content, {
     XFile? image,
+    Uint8List? pdfBytes,
     int numQuestions = 5,
+    String language = "English",
   }) async {
     final uri = Uri.parse(
       "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$geminiKey",
     );
 
+    final languageLine = language != "English"
+        ? "\nWrite the topic, questions, options, and explanations in $language."
+        : "";
+
     final prompt = """
 Based on the following study content, create a $numQuestions-question multiple-choice quiz.
+$languageLine
 
 Content:
 $content
@@ -177,6 +219,17 @@ Respond with ONLY valid JSON, no markdown code fences, no extra commentary, in e
       });
     }
 
+    if (pdfBytes != null) {
+      final base64Pdf = base64Encode(pdfBytes);
+
+      parts.add({
+        "inline_data": {
+          "mime_type": "application/pdf",
+          "data": base64Pdf,
+        },
+      });
+    }
+
     final response = await http.post(
       uri,
       headers: {"Content-Type": "application/json"},
@@ -194,7 +247,9 @@ Respond with ONLY valid JSON, no markdown code fences, no extra commentary, in e
     debugPrint("GEMINI QUIZ RESPONSE: ${response.body}");
 
     if (response.statusCode != 200) {
-      throw Exception("Quiz generation failed: ${response.body}");
+      throw Exception(
+        _friendlyErrorMessage(response.statusCode, response.body),
+      );
     }
 
     final data = jsonDecode(response.body);

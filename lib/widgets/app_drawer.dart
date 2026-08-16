@@ -41,31 +41,30 @@ Widget build(BuildContext context) {
 
             accountEmail: Text(email),
 
-            currentAccountPicture: const CircleAvatar(
-
+            currentAccountPicture: CircleAvatar(
               child: Icon(
                 Icons.person,
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.amber
+                    : null,
               ),
-
             ),
 
           ),
 
 
          ListTile(
-
-  leading: const Icon(
+  leading: Icon(
     Icons.add_comment_outlined,
+    color: Theme.of(context).brightness == Brightness.dark
+        ? Colors.amber
+        : null,
   ),
-
   title: const Text(
     "New Chat",
   ),
-
   onTap: () {
-
     Navigator.pop(context);
-
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
@@ -74,113 +73,53 @@ Widget build(BuildContext context) {
         ),
       ),
     );
-
   },
-
 ),
           ListTile(
-
-            leading: const Icon(
+            leading: Icon(
               Icons.person,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.amber
+                  : null,
             ),
-
             title: const Text(
               "Profile",
             ),
-
             onTap: (){
-
               Navigator.pop(context);
-
-
               Navigator.push(
-
-
                 context,
-
-
                 MaterialPageRoute(
-
-
                   builder: (context)=> ProfileScreen(
-
                     email: email,
-
                   ),
-
-
                 ),
-
-
               );
-
-
             },
-
-
           ),
 
 
             ListTile(
-
-
-
-              leading: const Icon(
-
+              leading: Icon(
                 Icons.history,
-
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.amber
+                    : null,
               ),
-
-
-
               title: const Text(
-
                 "Chat History",
-
               ),
-
-
-
               onTap: (){
-
-
-
                 Navigator.pop(context);
-
-
-
                 Navigator.push(
-
-
-
                   context,
-
-
-
                   MaterialPageRoute(
-
-
-
                     builder:(context)=> ChatHistoryScreen(
-
                       email: email,
-
                     ),
-
-
-
                   ),
-
-
-
                 );
-
-
-
               },
-
-
-
             ),
 
 
@@ -192,61 +131,24 @@ Widget build(BuildContext context) {
 
            
             ListTile(
-
-
-
-              leading: const Icon(
-
+              leading: Icon(
                 Icons.settings,
-
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.amber
+                    : null,
               ),
-
-
-
               title: const Text(
-
                 "Settings",
-
               ),
-
-
-
               onTap: (){
-
-
-
                 Navigator.pop(context);
-
-
-
                 Navigator.push(
-
-
-
                   context,
-
-
-
                   MaterialPageRoute(
-
-
-
                     builder:(context)=> const SettingsScreen(),
-
-
-
                   ),
-
-
-
                 );
-
-
-
               },
-
-
-
             ),
 
 
@@ -256,61 +158,24 @@ Widget build(BuildContext context) {
 
 
             ListTile(
-
-
-
-              leading: const Icon(
-
+              leading: Icon(
                 Icons.info,
-
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.amber
+                    : null,
               ),
-
-
-
               title: const Text(
-
                 "About",
-
               ),
-
-
-
               onTap: (){
-
-
-
                 Navigator.pop(context);
-
-
-
                 Navigator.push(
-
-
-
                   context,
-
-
-
                   MaterialPageRoute(
-
-
-
                     builder:(context)=> const AboutScreen(),
-
-
-
                   ),
-
-
-
                 );
-
-
-
               },
-
-
-
             ),
 
 
@@ -337,61 +202,24 @@ Widget build(BuildContext context) {
 
 
             ListTile(
-
-
-
-              leading: const Icon(
-
+              leading: Icon(
                 Icons.logout,
-
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.amber
+                    : null,
               ),
-
-
-
               title: const Text(
-
                 "Logout",
-
               ),
-
-
-
               onTap: (){
-
-
-
                 Navigator.pushAndRemoveUntil(
-
-
-
                   context,
-
-
-
                   MaterialPageRoute(
-
-
-
                     builder:(context)=> const WelcomeScreen(),
-
-
-
                   ),
-
-
-
                   (route)=>false,
-
-
-
                 );
-
-
-
               },
-
-
-
             ),
 
 

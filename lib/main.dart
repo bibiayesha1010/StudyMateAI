@@ -11,6 +11,8 @@ import 'screens/ai_workspace_screen.dart';
 
 import 'providers/theme_provider.dart';
 import 'providers/notification_provider.dart';
+import 'providers/language_provider.dart';
+import 'services/chat_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,6 +25,8 @@ Future<void> main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
+  await ChatService.instance.initialize();
+
   runApp(
     MultiProvider(
       providers: [
@@ -31,6 +35,9 @@ Future<void> main() async {
         ),
         ChangeNotifierProvider(
           create: (_) => NotificationProvider(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => LanguageProvider(),
         ),
       ],
       child: const StudyMate(),

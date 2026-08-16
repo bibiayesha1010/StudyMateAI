@@ -29,12 +29,39 @@ class Conversation {
     );
   }
 
+  factory Conversation.fromJson(
+    Map<String, dynamic> data,
+  ) {
+    return Conversation(
+      id: data['id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      title: data['title'] ?? 'New Chat',
+      createdAt: DateTime.fromMillisecondsSinceEpoch(
+        (data['createdAt'] as num?)?.toInt() ?? DateTime.now().millisecondsSinceEpoch,
+      ),
+      updatedAt: DateTime.fromMillisecondsSinceEpoch(
+        (data['updatedAt'] as num?)?.toInt() ?? DateTime.now().millisecondsSinceEpoch,
+      ),
+      messages: ((data['messages'] as List?) ?? const [])
+          .map((message) => ChatMessage.fromJson(Map<String, dynamic>.from(message)))
+          .toList(),
+    );
+  }
+
   Map<String, dynamic> toFirestore() {
     return {
       'title': title,
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
-  
+    };
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'createdAt': createdAt.millisecondsSinceEpoch,
+      'updatedAt': updatedAt.millisecondsSinceEpoch,
+      'messages': messages.map((message) => message.toJson()).toList(),
     };
   }
 }

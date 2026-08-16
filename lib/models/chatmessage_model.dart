@@ -27,11 +27,35 @@ class ChatMessage {
     );
   }
 
+  factory ChatMessage.fromJson(
+    Map<String, dynamic> data,
+  ) {
+    return ChatMessage(
+      text: data['text'] ?? '',
+      isUser: data['isUser'] ?? false,
+      timestamp: DateTime.fromMillisecondsSinceEpoch(
+        (data['timestamp'] as num?)?.toInt() ?? DateTime.now().millisecondsSinceEpoch,
+      ),
+      imagePath: data['imagePath'],
+      fileName: data['fileName'],
+    );
+  }
+
   Map<String, dynamic> toFirestore() {
     return {
       'text': text,
       'isUser': isUser,
       'timestamp': Timestamp.fromDate(timestamp),
+      'imagePath': imagePath,
+      'fileName': fileName,
+    };
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'text': text,
+      'isUser': isUser,
+      'timestamp': timestamp.millisecondsSinceEpoch,
       'imagePath': imagePath,
       'fileName': fileName,
     };
