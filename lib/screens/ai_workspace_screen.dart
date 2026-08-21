@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -44,6 +43,7 @@ final GeminiService geminiService = GeminiService();
 
 final List<ChatMessage> messages = [];
 Conversation? currentConversation;
+String? currentTopicContext;
 XFile? selectedImage;
 Uint8List? selectedImageBytes;
 PlatformFile? selectedPdf;
@@ -104,34 +104,54 @@ duration: Duration(seconds: 1),
 // Applies a suggestion directly to whatever's already in the input
 // (typed text and/or a selected image), instead of opening a dialog.
 void applyQuickAction(String label) {
-if (label == "Generate Quiz") {
-startQuiz();
-return;
-}
+  if (label == "Generate Quiz") {
+    startQuiz();
+    return;
+  }
 
-final typed = messageController.text.trim();
+  final typed = messageController.text.trim();
 
-String prompt;
+  String prompt;
 
-if (label == "Generate Notes") {
-  prompt = typed.isNotEmpty
-      ? "Generate detailed study notes for $typed"
-      : "Generate detailed study notes based on this.";
-} else if (label == "Explain Topic") {
-  prompt = typed.isNotEmpty
-      ? "Explain the topic $typed"
-      : "Explain what this is about.";
-} else {
-  // Summarize
-  prompt = typed.isNotEmpty
-      ? "Summarize the following content:\n\n$typed"
-      : "Summarize this.";
-}
+  if (typed.isNotEmpty) {
+    // If the student typed something new, use that.
+    if (label == "Generate Notes") {
+      prompt = "Generate detailed study notes for:\n\n$typed";
+    } else if (label == "Explain Topic") {
+      prompt = "Explain this topic clearly:\n\n$typed";
+    } else {
+      prompt = "Summarize the following:\n\n$typed";
+    }
+  } else if (currentTopicContext != null &&
+      currentTopicContext!.isNotEmpty) {
+    // Otherwise use the current study topic.
+    if (label == "Generate Notes") {
+      prompt =
+          "Generate detailed study notes based on the following current study topic and explanation:\n\n"
+          "$currentTopicContext";
+    } else if (label == "Explain Topic") {
+      prompt =
+          "Explain the current topic in more detail based on this conversation:\n\n"
+          "$currentTopicContext";
+    } else {
+      prompt =
+          "Summarize the current study topic based on this conversation:\n\n"
+          "$currentTopicContext";
+    }
+  } else {
+    // No previous topic yet.
+    if (label == "Generate Notes") {
+      prompt = "Generate detailed study notes.";
+    } else if (label == "Explain Topic") {
+      prompt = "Explain the topic being discussed.";
+    } else {
+      prompt = "Summarize the current conversation.";
+    }
+  }
 
-messageController.text = prompt;
+  messageController.text = prompt;
 
-sendMessage();
-
+  sendMessage();
 }
 
 // Builds quiz content from the whole conversation so far (what was
@@ -158,8 +178,11 @@ if (topicOverride != null && topicOverride.isNotEmpty) {
   content = "Base the quiz entirely on the attached PDF.";
 } else if (docTextForQuiz != null) {
   content = docTextForQuiz;
+} else if (currentTopicContext != null &&
+    currentTopicContext!.isNotEmpty) {
+  content = currentTopicContext!;
 } else if (messages.isNotEmpty) {
-  content = messages.map((m) => m.text).join("\n\n");
+  content = messages.last.text;
 } else {
   content = "general knowledge";
 }
@@ -200,16 +223,24 @@ try {
       builder: (context) => QuizScreen(quiz: quiz),
     ),
   );
-} catch (e) {
+}catch (e, stackTrace) {
+
+  debugPrint("QUIZ GENERATION ERROR: $e");
+  debugPrint("QUIZ STACK TRACE: $stackTrace");
+
   if (!mounted) return;
 
   Navigator.pop(context); // close loading dialog
 
   ScaffoldMessenger.of(context).showSnackBar(
+
     SnackBar(
-      content: Text('StudyMate Error: Unable to generate quiz. Please try again.'),
+      content: Text("Quiz Error: $e"),
+      duration: const Duration(seconds: 5),
     ),
+
   );
+
 }
 
 }
@@ -509,7 +540,8 @@ final aiMessage = ChatMessage(
   isUser: false,
   timestamp: DateTime.now(),
 );
-
+currentTopicContext =
+    "Student: $text\n\nStudyMate: $response";
 setState(() {
   messages.add(aiMessage);
 

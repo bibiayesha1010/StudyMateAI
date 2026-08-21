@@ -1,0 +1,203 @@
+text,label
+explain the difference between TCP and UDP,study_explain
+what is Big O notation,study_explain
+explain Newton's second law,study_explain
+how does binary search work,study_explain
+what is normalization in databases,study_explain
+explain object oriented programming,study_explain
+what is polymorphism in Java,study_explain
+explain recursion in simple terms,study_explain
+how does DNS resolution work,study_explain
+what is supervised learning,study_explain
+explain overfitting in machine learning,study_explain
+what is a linked list,study_explain
+explain the OSI model,study_explain
+what is deadlock in operating systems,study_explain
+explain SQL joins,study_explain
+what is inheritance in Java,study_explain
+explain gradient descent,study_explain
+how does a stack work,study_explain
+what is encapsulation,study_explain
+explain the water cycle,study_explain
+what is the difference between RAM and ROM,study_explain
+explain cloud computing,study_explain
+how does a compiler work,study_explain
+what is normalization in machine learning,study_explain
+explain the concept of probability,study_explain
+how does a neural network work,study_explain
+what is data preprocessing,study_explain
+explain primary keys and foreign keys,study_explain
+what is an algorithm,study_explain
+explain database indexing,study_explain
+teach me about operating systems,study_explain
+help me understand computer networks,study_explain
+what is the difference between HTTP and HTTPS,study_explain
+explain the software development life cycle,study_explain
+what is feature engineering,study_explain
+summarize the causes of World War 1,study_summary
+summarize this chapter for me,study_summary
+give me a short summary of this topic,study_summary
+summarize the notes I uploaded,study_summary
+make this explanation shorter,study_summary
+give me the main points from this chapter,study_summary
+summarize the important concepts,study_summary
+make a quick summary of this lesson,study_summary
+summarize this paragraph,study_summary
+give me the key points only,study_summary
+shorten these notes,study_summary
+summarize the topic of machine learning,study_summary
+give me a brief overview of operating systems,study_summary
+summarize this study material,study_summary
+make a concise summary of this chapter,study_summary
+what are the main ideas here,study_summary
+give me a quick revision summary,study_summary
+summarize the important formulas,study_summary
+reduce this content to important points,study_summary
+give me the chapter summary,study_summary
+summarize this text for revision,study_summary
+make these notes concise,study_summary
+what should I remember from this topic,study_summary
+give me a short revision of this lesson,study_summary
+summarize the uploaded document,study_summary
+give me the important points from these notes,study_summary
+create a summary for my exam,study_summary
+summarize this material in simple words,study_summary
+give me the essential points,study_summary
+summarize this topic quickly,study_summary
+summarize this article for studying,study_summary
+give me a brief revision guide,study_summary
+condense these study notes,study_summary
+make a summary of this lesson,study_summary
+generate notes on computer networks,study_notes
+make notes about operating systems,study_notes
+create study notes for DBMS,study_notes
+give me notes on machine learning,study_notes
+prepare notes about data structures,study_notes
+make detailed notes on Java inheritance,study_notes
+create notes for this chapter,study_notes
+turn this topic into study notes,study_notes
+make revision notes for me,study_notes
+prepare notes on the OSI model,study_notes
+generate notes about SQL,study_notes
+make notes about normalization,study_notes
+create notes on artificial intelligence,study_notes
+give me exam notes for this topic,study_notes
+prepare concise notes on Python,study_notes
+make study material from this topic,study_notes
+turn these paragraphs into notes,study_notes
+create organized notes for this lesson,study_notes
+make notes that I can revise from,study_notes
+generate notes for my exam,study_notes
+prepare notes about networking,study_notes
+create notes on software engineering,study_notes
+make notes about database management,study_notes
+give me structured notes on algorithms,study_notes
+generate revision notes,study_notes
+make notes from this chapter,study_notes
+prepare study notes on probability,study_notes
+create notes about operating system deadlocks,study_notes
+make notes on object oriented programming,study_notes
+generate notes on web development,study_notes
+prepare notes about cloud computing,study_notes
+create notes for this subject,study_notes
+give me notes in simple language,study_notes
+turn my study material into notes,study_notes
+give me 10 MCQs on DBMS,study_quiz
+quiz me on operating systems,study_quiz
+generate multiple choice questions about Java,study_quiz
+make a quiz about computer networks,study_quiz
+test me on machine learning,study_quiz
+create MCQs from this chapter,study_quiz
+give me practice questions on SQL,study_quiz
+make a quiz for this topic,study_quiz
+test my knowledge of data structures,study_quiz
+generate 20 questions about Python,study_quiz
+create an exam quiz for me,study_quiz
+give me multiple choice questions on normalization,study_quiz
+quiz me about the OSI model,study_quiz
+make practice questions for this lesson,study_quiz
+test me on this chapter,study_quiz
+generate questions from my notes,study_quiz
+give me an MCQ test,study_quiz
+create a short quiz about algorithms,study_quiz
+make a practice test for DBMS,study_quiz
+quiz me on object oriented programming,study_quiz
+generate questions for revision,study_quiz
+test my understanding of operating systems,study_quiz
+create MCQs from these notes,study_quiz
+give me a quiz on probability,study_quiz
+make an online test about machine learning,study_quiz
+generate practice MCQs,study_quiz
+quiz me on computer architecture,study_quiz
+create a test for my exam preparation,study_quiz
+make multiple choice questions from this topic,study_quiz
+give me 5 questions on networking,study_quiz
+test me on SQL concepts,study_quiz
+generate a quiz from this chapter,study_quiz
+create revision questions,study_quiz
+make me a practice quiz,study_quiz
+make flashcards for DBMS,study_flashcards
+create flashcards about operating systems,study_flashcards
+generate flashcards for machine learning,study_flashcards
+turn this chapter into flashcards,study_flashcards
+make revision flashcards,study_flashcards
+create flashcards from my notes,study_flashcards
+give me flashcards for Java,study_flashcards
+make flashcards about computer networks,study_flashcards
+generate study cards for this topic,study_flashcards
+create question and answer cards,study_flashcards
+make flashcards for quick revision,study_flashcards
+turn these notes into flashcards,study_flashcards
+prepare flashcards for my exam,study_flashcards
+create flashcards about SQL,study_flashcards
+give me revision cards for this chapter,study_flashcards
+make flashcards from this lesson,study_flashcards
+generate cards for important concepts,study_flashcards
+create study cards about data structures,study_flashcards
+make flashcards for Python concepts,study_flashcards
+turn this study material into flashcards,study_flashcards
+give me flashcards to memorize this topic,study_flashcards
+create flashcards for operating system concepts,study_flashcards
+make question answer cards from these notes,study_flashcards
+generate flashcards for revision,study_flashcards
+create flashcards about networking,study_flashcards
+make flashcards from this chapter,study_flashcards
+prepare quick revision cards,study_flashcards
+give me flashcards on normalization,study_flashcards
+turn my notes into study cards,study_flashcards
+create flashcards for exam preparation,study_flashcards
+what is a good movie to watch tonight,generic
+how is the weather today,generic
+tell me a joke,generic
+what should I cook for dinner,generic
+recommend a good podcast,generic
+what time is it in Tokyo,generic
+who won the match last night,generic
+suggest a birthday gift for my friend,generic
+how do I make good coffee at home,generic
+what is trending on social media,generic
+give me a workout routine,generic
+how far is Bangalore from Mumbai,generic
+what is a good book to read for fun,generic
+help me write a birthday message,generic
+recommend a restaurant nearby,generic
+what should I wear today,generic
+suggest a movie for the weekend,generic
+give me a simple dinner recipe,generic
+recommend a song for a road trip,generic
+what can I do this weekend,generic
+help me plan a date,generic
+what are some travel destinations,generic
+tell me something funny,generic
+suggest a TV series,generic
+what gift should I buy my sister,generic
+recommend a good YouTube channel,generic
+how can I make better coffee,generic
+what is the weather tomorrow,generic
+give me ideas for a birthday party,generic
+what are some fun hobbies,generic
+recommend a podcast for commuting,generic
+where should I go for vacation,generic
+help me plan my weekend,generic
+what is a good recipe with eggs,generic
+suggest something fun to do tonight,generic

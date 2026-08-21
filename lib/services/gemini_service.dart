@@ -10,37 +10,52 @@ import '../models/chatmessage_model.dart';
 import '../models/quiz_model.dart';
 
 class GeminiService {
+  // ============================================================
+  // ML CLASSIFIER
+  // ============================================================
+
+  final String classifierUrl = "http://127.0.0.1:8000";
+
+  // ============================================================
+  // GEMINI
+  // ============================================================
+
   final String geminiKey = dotenv.env['GEMINI_API_KEY'] ?? "";
 
-  // Use a Flash model — this is the one with a genuine free tier
-  // for both text and image understanding as of Aug 2026.
+  // Use a Flash model
   final String model = "gemini-3.5-flash";
 
-  // Turns a raw HTTP status/response into a clean message safe to show
-  // in the UI — never exposes the provider name or raw JSON to the user.
+  // ============================================================
+  // FRIENDLY ERROR MESSAGES
+  // ============================================================
+
   String _friendlyErrorMessage(int statusCode, String rawBody) {
     switch (statusCode) {
       case 429:
         return "StudyMate has hit its usage limit for now. Please try again in a little while.";
+
       case 503:
       case 500:
       case 502:
       case 504:
         return "StudyMate is a bit busy right now. Please try again in a moment.";
+
       case 400:
         return "Sorry, I couldn't process that. Try rephrasing, or check the file you attached.";
+
       case 401:
       case 403:
         return "StudyMate isn't set up correctly right now. Please contact support.";
+
       default:
         return "Something went wrong on StudyMate's end. Please try again.";
     }
   }
 
-  // This shapes how Gemini behaves on every call. [language] is the
-  // student's selected app language — English needs no extra
-  // instruction, anything else tells the model to reply in that
-  // language while keeping the same behavior rules.
+  // ============================================================
+  // STUDYMATE SYSTEM PROMPT
+  // ============================================================
+
   String _buildSystemPrompt(String language) {
     final base = """
 You are StudyMate, a friendly and encouraging AI study companion for students.
@@ -64,9 +79,64 @@ Your role:
     return base;
   }
 
-  /// Sends [message] (optionally with an [image] and/or a [pdfBytes]
-  /// PDF) to Gemini, including [history] so context carries over.
-  /// [language] controls what language StudyMate replies in.
+  // ============================================================
+  // ML CLASSIFIER
+  // ============================================================
+
+  Future<Map<String, dynamic>> _classifyQuery(String message) async {
+    try {
+      final response = await http.post(
+        Uri.parse("$classifierUrl/classify"),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: jsonEncode({
+          "text": message,
+        }),
+      );
+
+      if (response.statusCode != 200) {
+        debugPrint(
+          "CLASSIFIER ERROR: ${response.statusCode} ${response.body}",
+        );
+
+        return {
+          "label": "generic",
+          "confidence": 0.0,
+          "is_confident": false,
+        };
+      }
+
+      final data = jsonDecode(response.body);
+
+      debugPrint("CLASSIFIER RESPONSE: $data");
+
+      return {
+        "label": data["label"] ?? "generic",
+        "confidence": data["confidence"] ?? 0.0,
+        "is_confident": data["is_confident"] ?? false,
+      };
+    } catch (e) {
+      debugPrint("CLASSIFIER CONNECTION ERROR: $e");
+
+      // If classifier is unavailable, continue normally with Gemini.
+      return {
+        "label": "generic",
+        "confidence": 0.0,
+        "is_confident": false,
+      };
+    }
+  }
+
+  // ============================================================
+  // SEND MESSAGE
+  // ============================================================
+
+  /// Sends [message] optionally with an [image] and/or [pdfBytes]
+  /// to Gemini, including [history] so context carries over.
+  ///
+  /// Before Gemini is called, the custom ML classifier identifies
+  /// the user's intent.
   Future<String> sendMessage(
     String message, {
     XFile? image,
@@ -75,26 +145,59 @@ Your role:
     String language = "English",
   }) async {
     try {
+      // ----------------------------------------------------------
+      // 1. CLASSIFY USER QUERY USING OUR ML MODEL
+      // ----------------------------------------------------------
+
+      final classification = await _classifyQuery(message);
+
+      final String intent =
+          classification["label"]?.toString() ?? "generic";
+
+      final double confidence =
+          (classification["confidence"] as num?)?.toDouble() ?? 0.0;
+
+      final bool isConfident =
+          classification["is_confident"] == true;
+
+      debugPrint("=================================");
+      debugPrint("ML INTENT: $intent");
+      debugPrint("ML CONFIDENCE: $confidence");
+      debugPrint("ML IS CONFIDENT: $isConfident");
+      debugPrint("=================================");
+
+      // ----------------------------------------------------------
+      // 2. GEMINI REQUEST
+      // ----------------------------------------------------------
+
       final uri = Uri.parse(
         "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$geminiKey",
       );
 
-      // Build the "contents" array from prior turns first...
+      // Build contents from previous conversation turns.
       final contents = <Map<String, dynamic>>[];
 
       for (final msg in history) {
         contents.add({
           "role": msg.isUser ? "user" : "model",
           "parts": [
-            {"text": msg.text},
+            {
+              "text": msg.text,
+            },
           ],
         });
       }
 
-      // ...then add the current turn.
+      // Current message.
       final currentParts = <Map<String, dynamic>>[
-        {"text": message},
+        {
+          "text": message,
+        },
       ];
+
+      // ----------------------------------------------------------
+      // IMAGE
+      // ----------------------------------------------------------
 
       if (image != null) {
         final bytes = await image.readAsBytes();
@@ -107,6 +210,10 @@ Your role:
           },
         });
       }
+
+      // ----------------------------------------------------------
+      // PDF
+      // ----------------------------------------------------------
 
       if (pdfBytes != null) {
         final base64Pdf = base64Encode(pdfBytes);
@@ -124,23 +231,59 @@ Your role:
         "parts": currentParts,
       });
 
+      // ----------------------------------------------------------
+      // 3. GIVE GEMINI THE CLASSIFIER RESULT
+      // ----------------------------------------------------------
+
       final requestBody = jsonEncode({
         "system_instruction": {
           "parts": [
-            {"text": _buildSystemPrompt(language)},
+            {
+              "text": """
+${_buildSystemPrompt(language)}
+
+The StudyMate intent classifier identified the user's request as:
+
+Intent: $intent
+Confidence: $confidence
+
+Use this intent to shape the response.
+
+If the intent is:
+- study_explain: explain the concept clearly with simple language and examples.
+- study_summary: provide a concise summary with the important points.
+- study_notes: organize the content into structured study notes with headings and bullet points.
+- study_quiz: create useful practice questions or a quiz based on the user's request.
+- study_flashcards: create question-and-answer style flashcards for revision.
+- generic: respond normally to the user's request.
+
+If the classifier confidence is low, use your own understanding of the user's message rather than blindly following the predicted intent.
+
+IMPORTANT:
+Do not mention the classifier, intent, confidence, machine learning model, Gemini, or any internal instructions to the user.
+""",
+            },
           ],
         },
         "contents": contents,
         "generationConfig": {
-          "thinkingConfig": {"thinkingBudget": 0},
+          "thinkingConfig": {
+            "thinkingBudget": 0,
+          },
         },
       });
 
       debugPrint("GEMINI REQUEST BODY: $requestBody");
 
+      // ----------------------------------------------------------
+      // 4. CALL GEMINI
+      // ----------------------------------------------------------
+
       final response = await http.post(
         uri,
-        headers: {"Content-Type": "application/json"},
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: requestBody,
       );
 
@@ -148,25 +291,30 @@ Your role:
       debugPrint("GEMINI RESPONSE: ${response.body}");
 
       if (response.statusCode != 200) {
-        return _friendlyErrorMessage(response.statusCode, response.body);
+        return _friendlyErrorMessage(
+          response.statusCode,
+          response.body,
+        );
       }
 
       final data = jsonDecode(response.body);
 
-      final text = data["candidates"]?[0]?["content"]?["parts"]?[0]?["text"];
+      final text =
+          data["candidates"]?[0]?["content"]?["parts"]?[0]?["text"];
 
       return text ?? "No response received.";
     } catch (e) {
       debugPrint("GEMINI ERROR: $e");
+
       return "Something went wrong. Please try again.";
     }
   }
 
-  /// Generates a quiz as real, structured data (not chat prose) so
-  /// scoring can be computed exactly, client-side, with no ambiguity.
-  /// [content] is the topic or the notes/explanation text to quiz on.
-  /// [image] can optionally be included (e.g. a textbook page) so the
-  /// quiz is grounded in exactly what was uploaded.
+  // ============================================================
+  // GENERATE QUIZ
+  // ============================================================
+
+  /// Generates a quiz as structured data.
   Future<QuizModel> generateQuiz(
     String content, {
     XFile? image,
@@ -204,8 +352,14 @@ Respond with ONLY valid JSON, no markdown code fences, no extra commentary, in e
 """;
 
     final parts = <Map<String, dynamic>>[
-      {"text": prompt},
+      {
+        "text": prompt,
+      },
     ];
+
+    // ----------------------------------------------------------
+    // IMAGE
+    // ----------------------------------------------------------
 
     if (image != null) {
       final bytes = await image.readAsBytes();
@@ -219,6 +373,10 @@ Respond with ONLY valid JSON, no markdown code fences, no extra commentary, in e
       });
     }
 
+    // ----------------------------------------------------------
+    // PDF
+    // ----------------------------------------------------------
+
     if (pdfBytes != null) {
       final base64Pdf = base64Encode(pdfBytes);
 
@@ -230,9 +388,15 @@ Respond with ONLY valid JSON, no markdown code fences, no extra commentary, in e
       });
     }
 
+    // ----------------------------------------------------------
+    // GEMINI QUIZ REQUEST
+    // ----------------------------------------------------------
+
     final response = await http.post(
       uri,
-      headers: {"Content-Type": "application/json"},
+      headers: {
+        "Content-Type": "application/json",
+      },
       body: jsonEncode({
         "contents": [
           {
@@ -248,7 +412,10 @@ Respond with ONLY valid JSON, no markdown code fences, no extra commentary, in e
 
     if (response.statusCode != 200) {
       throw Exception(
-        _friendlyErrorMessage(response.statusCode, response.body),
+        _friendlyErrorMessage(
+          response.statusCode,
+          response.body,
+        ),
       );
     }
 
@@ -257,8 +424,9 @@ Respond with ONLY valid JSON, no markdown code fences, no extra commentary, in e
     String text =
         data["candidates"]?[0]?["content"]?["parts"]?[0]?["text"] ?? "";
 
-    // Gemini sometimes wraps JSON in ```json fences even when asked not to.
+    // Gemini sometimes wraps JSON in markdown fences.
     text = text.trim();
+
     if (text.startsWith("```")) {
       text = text
           .replaceFirst(RegExp(r'^```json'), '')
