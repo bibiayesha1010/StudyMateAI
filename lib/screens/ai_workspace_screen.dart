@@ -11,6 +11,7 @@ import '../models/conversation_model.dart';
 import '../providers/language_provider.dart';
 import '../services/chat_service.dart';
 import '../services/gemini_service.dart';
+import '../services/local_llm_service.dart';
 import '../screens/quiz_screen.dart';
 import 'package:flutter/services.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -20,7 +21,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:archive/archive.dart';
 import 'package:xml/xml.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
-
+import '../models/quiz_model.dart';
 class AIWorkspaceScreen extends StatefulWidget {
 final String email;
 
@@ -40,7 +41,7 @@ class _AIWorkspaceScreenState extends State<AIWorkspaceScreen> {
 final TextEditingController messageController = TextEditingController();
 
 final GeminiService geminiService = GeminiService();
-
+final LocalLLMService localLLMService = LocalLLMService();
 final List<ChatMessage> messages = [];
 Conversation? currentConversation;
 String? currentTopicContext;
@@ -156,95 +157,56 @@ void applyQuickAction(String label) {
 
 // Builds quiz content from the whole conversation so far (what was
 // uploaded + explained), or from typed text if that's all there is,
-// then generates a real structured quiz and opens the quiz screen.
 Future<void> startQuiz({String? topicOverride}) async {
-final typed = messageController.text.trim();
-final imageForQuiz = selectedImage;
-final pdfBytesForQuiz = selectedPdf?.bytes;
-final docTextForQuiz = selectedDocText;
+  final typed = messageController.text.trim();
 
-String content;
+  String topic;
 
-if (topicOverride != null && topicOverride.isNotEmpty) {
-  content = topicOverride;
-} else if (typed.isNotEmpty) {
-  content = typed;
-} else if (imageForQuiz != null) {
-  // A freshly attached image should drive the quiz, not old chat
-  // history — otherwise a prior topic (e.g. photosynthesis) can
-  // dominate over what was just uploaded.
-  content = "Base the quiz entirely on the attached image.";
-} else if (pdfBytesForQuiz != null) {
-  content = "Base the quiz entirely on the attached PDF.";
-} else if (docTextForQuiz != null) {
-  content = docTextForQuiz;
-} else if (currentTopicContext != null &&
-    currentTopicContext!.isNotEmpty) {
-  content = currentTopicContext!;
-} else if (messages.isNotEmpty) {
-  content = messages.last.text;
-} else {
-  content = "general knowledge";
+  if (topicOverride != null && topicOverride.isNotEmpty) {
+    topic = topicOverride;
+  } else if (typed.isNotEmpty) {
+    topic = typed;
+  } else if (currentTopicContext != null &&
+      currentTopicContext!.isNotEmpty) {
+    topic = currentTopicContext!;
+  } else {
+    topic = "Photosynthesis";
+  }
+
+  try {
+    final languageProvider =
+        Provider.of<LanguageProvider>(context, listen: false);
+
+    final quiz = await geminiService.generateQuiz(
+      topic,
+      image: selectedImage,
+      pdfBytes: selectedPdf?.bytes,
+      language: languageProvider.selectedLanguage,
+      numQuestions: 5,
+    );
+
+    if (!mounted) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => QuizScreen(quiz: quiz),
+      ),
+    );
+  } catch (e) {
+    debugPrint("QUIZ GENERATION ERROR: $e");
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          e.toString().replaceFirst("Exception: ", ""),
+        ),
+      ),
+    );
+  }
 }
-
-showDialog(
-  context: context,
-  barrierDismissible: false,
-  builder: (context) => const Center(
-    child: CircularProgressIndicator(),
-  ),
-);
-
-try {
-  final languageProvider = Provider.of<LanguageProvider>(context, listen: false);
-  
-  final quiz = await geminiService.generateQuiz(
-    content,
-    image: imageForQuiz,
-    pdfBytes: pdfBytesForQuiz,
-    language: languageProvider.selectedLanguage,
-  );
-
-  if (!mounted) return;
-
-  Navigator.pop(context); // close loading dialog
-
-  messageController.clear();
-  setState(() {
-    selectedImage = null;
-    selectedPdf = null;
-    selectedDocText = null;
-    selectedDocName = null;
-  });
-
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (context) => QuizScreen(quiz: quiz),
-    ),
-  );
-}catch (e, stackTrace) {
-
-  debugPrint("QUIZ GENERATION ERROR: $e");
-  debugPrint("QUIZ STACK TRACE: $stackTrace");
-
-  if (!mounted) return;
-
-  Navigator.pop(context); // close loading dialog
-
-  ScaffoldMessenger.of(context).showSnackBar(
-
-    SnackBar(
-      content: Text("Quiz Error: $e"),
-      duration: const Duration(seconds: 5),
-    ),
-
-  );
-
-}
-
-}
-
 Widget quickActionChip(String label) {
 return ActionChip(
 label: Text(label),
@@ -526,14 +488,21 @@ if (docTextToSend != null) {
 debugPrint("FINAL PROMPT LENGTH: ${finalPrompt.length}");
 
 final languageProvider = Provider.of<LanguageProvider>(context, listen: false);
+String response;
 
-final response = await geminiService.sendMessage(
-  finalPrompt,
-  image: imageToSend,
-  pdfBytes: pdfToSend?.bytes,
-  history: historyForThisTurn,
-  language: languageProvider.selectedLanguage,
-);
+if (imageToSend == null && pdfToSend == null) {
+  // Normal text → local Ollama
+  response = await localLLMService.sendMessage(finalPrompt);
+} else {
+  // Image/PDF → Gemini for now
+  response = await geminiService.sendMessage(
+    finalPrompt,
+    image: imageToSend,
+    pdfBytes: pdfToSend?.bytes,
+    history: historyForThisTurn,
+    language: languageProvider.selectedLanguage,
+  );
+}
 
 final aiMessage = ChatMessage(
   text: response,
